@@ -1,6 +1,7 @@
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
+import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
@@ -13,7 +14,15 @@ const config: ForgeConfig = {
     asar: true,
   },
   rebuildConfig: {},
-  makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
+  makers: [
+    new MakerSquirrel({}),
+    // The zip is kept for macOS auto-updates (Squirrel.Mac reads the zip); the
+    // DMG is what people download and drag into Applications.
+    new MakerZIP({}, ['darwin']),
+    new MakerDMG({ format: 'ULFO' }),
+    new MakerRpm({}),
+    new MakerDeb({}),
+  ],
   publishers: [
     // `npm run release` uploads the made distributables to a draft GitHub
     // release tagged `v<version>`, so the Windows, macOS and Linux builds from
