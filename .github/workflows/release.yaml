@@ -40,7 +40,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: macos-latest
+            # Forge takes the arch from the CLI rather than packagerConfig, so
+            # the macOS build is made universal to cover Intel Macs too.
+            forge_args: -- --arch=universal
+          - os: ubuntu-latest
+            forge_args: ''
+          - os: windows-latest
+            forge_args: ''
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,6 +61,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y rpm fakeroot dpkg
       - run: npm ci
       - name: Make and publish
-        run: npm run release
+        run: npm run release ${{ matrix.forge_args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

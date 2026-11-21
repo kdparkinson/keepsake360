@@ -12,6 +12,15 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    // Set explicitly so the app's identity is stable under Gatekeeper, the
+    // keychain and any future update feed.
+    appBundleId: 'com.kdparkinson.keepsake360',
+    // Ad-hoc signing for now (no Developer ID yet), declared explicitly because
+    // Forge's fuses plugin only re-signs the arm64 slice when osxSign is unset,
+    // which leaves the x64 and arm64 slices with different file sets and breaks
+    // the universal merge. Declaring it makes Packager sign the merged app once.
+    // Replace `identity` with a Developer ID Application identity to ship signed.
+    osxSign: { identity: '-', identityValidation: false },
   },
   rebuildConfig: {},
   makers: [
