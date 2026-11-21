@@ -16,7 +16,7 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check the tag matches package.json
         env:
           TAG: ${{ github.ref_name }}
@@ -38,6 +38,22 @@ jobs:
           else
             gh release create "$TAG" --draft --title "$TAG" --generate-notes
           fi
+      # Put per-OS install instructions above the generated notes, so the asset
+      # list isn't just filenames next to GitHub's source archives.
+      - name: Add install notes to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          body="$(gh release view "$TAG" --json body -q .body)"
+          case "$body" in
+            *'## Install'*) echo "Install notes already present." ;;
+            *)
+              printf '%s\n\n%s\n' "$(cat .github/release-notes.md)" "$body" > "$RUNNER_TEMP/release-body.md"
+              gh release edit "$TAG" --notes-file "$RUNNER_TEMP/release-body.md"
+              echo "Added install notes to $TAG."
+              ;;
+          esac
 
   release:
     needs: draft-release
@@ -53,20 +69,14 @@ jobs:
             # Forge takes the arch from the CLI rather than packagerConfig, so
             # the macOS build is made universal to cover Intel Macs too.
             forge_args: -- --arch=universal
-          - os: ubuntu-latest
-            forge_args: ''
           - os: windows-latest
             forge_args: ''
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
-      # maker-rpm needs rpm; maker-deb needs fakeroot and dpkg.
-      - name: Install Linux packaging tools
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y rpm fakeroot dpkg
       - run: npm ci
       - name: Make and publish
         if: github.event_name == 'push'
@@ -79,7 +89,7 @@ jobs:
         run: npm run make ${{ matrix.forge_args }}
       - name: Upload distributables
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: keepsake360-${{ runner.os }}
           path: out/make/**
