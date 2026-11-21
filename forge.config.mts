@@ -5,6 +5,7 @@ import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
+import { PublisherGitHub } from '@electron-forge/publisher-github';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
@@ -13,6 +14,25 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
+  publishers: [
+    // `npm run release` uploads the made distributables to a draft GitHub
+    // release tagged `v<version>`, so the Windows, macOS and Linux builds from
+    // CI collect in one release you review before publishing it.
+    // The token is read from the GITHUB_TOKEN environment variable.
+    new PublisherGitHub({
+      repository: {
+        owner: 'kdparkinson',
+        name: 'keepsake360',
+      },
+      // Release artifacts are collected in a draft first, so you can check
+      // them before the release goes public.
+      draft: true,
+      generateReleaseNotes: true,
+      // Without this, a re-run of a failed release job silently keeps the
+      // assets the previous attempt uploaded; with it they are replaced.
+      force: true,
+    }),
+  ],
   plugins: [
     new VitePlugin({
       // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
