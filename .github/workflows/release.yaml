@@ -3,12 +3,17 @@ on:
   push:
     tags:
       - 'v*'
+  # Manual run: builds every platform the same way a tag does but publishes
+  # nothing, so the first tagged release is not also the first CI run.
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   draft-release:
+    # A release only exists for a tag push; a manual run is a dry run.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +41,9 @@ jobs:
 
   release:
     needs: draft-release
+    # Keep building when draft-release was skipped (manual dry run), but not
+    # when it failed or was cancelled.
+    if: always() && (needs.draft-release.result == 'success' || needs.draft-release.result == 'skipped')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -61,6 +69,18 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y rpm fakeroot dpkg
       - run: npm ci
       - name: Make and publish
+        if: github.event_name == 'push'
         run: npm run release ${{ matrix.forge_args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Dry run: same makers, no publisher, artifacts kept for inspection.
+      - name: Make only
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run make ${{ matrix.forge_args }}
+      - name: Upload distributables
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: keepsake360-${{ runner.os }}
+          path: out/make/**
+          if-no-files-found: error
