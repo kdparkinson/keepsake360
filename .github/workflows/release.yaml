@@ -4,8 +4,14 @@ on:
     tags:
       - 'v*'
   # Manual run: builds every platform the same way a tag does but publishes
-  # nothing, so the first tagged release is not also the first CI run.
+  # nothing, so the first tagged release is not also the first CI run. Set
+  # `smoke_test` to also install and launch the Windows build on a real runner.
   workflow_dispatch:
+    inputs:
+      smoke_test:
+        description: 'Install and launch the Windows build after making it'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -94,3 +100,65 @@ jobs:
           name: keepsake360-${{ runner.os }}
           path: out/make/**
           if-no-files-found: error
+
+  # Opt-in from a manual run. This is the only automated evidence that the
+  # Windows installer works on its own, without Squirrel's `.nupkg` beside it,
+  # and that the app survives startup — neither of which the build job proves.
+  # GitHub's Windows runners are not an ordinary desktop session, so this shows
+  # the app starts and stays up, not that it looks right.
+  windows-smoke-test:
+    if: github.event_name == 'workflow_dispatch' && inputs.smoke_test
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: keepsake360-Windows
+          path: out/make
+      - name: Install the app, launch it, and check it stays running
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $setup = Get-ChildItem -Path out/make -Recurse -Filter '*Setup.exe' |
+            Select-Object -First 1
+          if (-not $setup) { throw 'No Setup.exe was found in the build artifacts.' }
+          Write-Host "Installing $($setup.FullName)"
+
+          $install = Start-Process -FilePath $setup.FullName -ArgumentList '--silent' -Wait -PassThru
+          Write-Host "Setup.exe exited with code $($install.ExitCode)"
+          if ($install.ExitCode -ne 0) { throw "Setup.exe failed with code $($install.ExitCode)" }
+
+          # Squirrel installs the app as %LOCALAPPDATA%\<name>\app-<version>\<name>.exe,
+          # so find it rather than hard-coding the version.
+          $app = Get-ChildItem -Path "$env:LOCALAPPDATA\keepsake360" -Recurse -Filter 'keepsake360.exe' `
+            -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $app) { throw 'The app was not installed under %LOCALAPPDATA%\keepsake360.' }
+          Write-Host "Installed at $($app.FullName)"
+
+          # Squirrel may launch the app itself once the install finishes.
+          Get-Process keepsake360 -ErrorAction SilentlyContinue | Stop-Process -Force
+
+          $stderr = Join-Path $env:RUNNER_TEMP 'app-stderr.log'
+          $process = Start-Process -FilePath $app.FullName -PassThru -RedirectStandardError $stderr
+          Start-Sleep -Seconds 15
+
+          if ($process.HasExited) {
+            Write-Host '--- stderr ---'
+            if (Test-Path $stderr) { Get-Content $stderr }
+            throw "The app exited with code $($process.ExitCode) before the 15s check."
+          }
+
+          Write-Host 'The app is still running after 15 seconds.'
+
+          # Logged, not asserted: a runner session can be headless, but when a
+          # window does exist this is proof the app is really on screen.
+          if ($process.MainWindowHandle -ne 0) {
+            Write-Host "A window is on screen (handle $($process.MainWindowHandle))."
+          }
+          else {
+            Write-Host 'No window handle — process alive, but no reachable GUI in this session.'
+          }
+
+          Stop-Process -Id $process.Id -Force
