@@ -1,4 +1,7 @@
-import type { ForgeConfig } from '@electron-forge/shared-types';
+import { rename, rm } from 'node:fs/promises';
+import path from 'node:path';
+
+import type { ForgeConfig, ForgeMakeResult, ForgePlatform } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
@@ -8,6 +11,54 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { PublisherGitHub } from '@electron-forge/publisher-github';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+
+// Forge names the DMG without an OS (`keepsake360-1.0.0-universal.dmg`), the zip
+// after the packaged folder (`keepsake360-darwin-universal-1.0.0.zip`) and
+// Squirrel's installer after the package alone (`keepsake360-1.0.0 Setup.exe`),
+// which leaves the release page ambiguous about which download is for which OS.
+// Label the user-facing archives with the OS instead.
+const OS_LABELS: Partial<Record<ForgePlatform, string>> = {
+  darwin: 'macOS',
+  mas: 'macOS',
+  win32: 'windows',
+  linux: 'linux',
+};
+
+// Left alone on purpose: Squirrel's `.nupkg` and `RELEASES` files, because
+// Windows auto-updates look the package up by that exact name.
+const OS_LABELED_EXTENSIONS = ['.dmg', '.zip', '.exe'];
+
+async function labelArtifactsByOs(makeResults: ForgeMakeResult[]): Promise<ForgeMakeResult[]> {
+  for (const result of makeResults) {
+    const osLabel = OS_LABELS[result.platform];
+    if (!osLabel) continue;
+
+    const { name, productName, version } = result.packageJSON;
+    const appName = String(productName ?? name);
+
+    result.artifacts = await Promise.all(
+      result.artifacts.map(async (artifact) => {
+        const extension = path.extname(artifact).toLowerCase();
+        if (!OS_LABELED_EXTENSIONS.includes(extension)) return artifact;
+
+        const suffix = extension === '.exe' ? ' Setup' : '';
+        const renamed = path.join(
+          path.dirname(artifact),
+          `${appName}-${version}-${osLabel}-${result.arch}${suffix}${extension}`,
+        );
+        if (renamed === artifact) return artifact;
+
+        // A failed earlier make can leave the labelled file behind, and
+        // rename() refuses to overwrite on Windows, so clear the way first.
+        await rm(renamed, { force: true });
+        await rename(artifact, renamed);
+        return renamed;
+      }),
+    );
+  }
+
+  return makeResults;
+}
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -51,6 +102,11 @@ const config: ForgeConfig = {
       force: true,
     }),
   ],
+  hooks: {
+    // Runs after the makers and before the GitHub publisher, which uploads the
+    // paths in the results, so the renamed files are what reach the release.
+    postMake: async (_forgeConfig, makeResults) => labelArtifactsByOs(makeResults),
+  },
   plugins: [
     new VitePlugin({
       // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
