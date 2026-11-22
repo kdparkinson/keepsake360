@@ -5,8 +5,6 @@ import type { ForgeConfig, ForgeMakeResult, ForgePlatform } from '@electron-forg
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
-import { MakerDeb } from '@electron-forge/maker-deb';
-import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { PublisherGitHub } from '@electron-forge/publisher-github';
@@ -80,13 +78,11 @@ const config: ForgeConfig = {
     // DMG is what people download and drag into Applications.
     new MakerZIP({}, ['darwin']),
     new MakerDMG({ format: 'ULFO' }),
-    new MakerRpm({}),
-    new MakerDeb({}),
   ],
   publishers: [
     // `npm run release` uploads the made distributables to a draft GitHub
-    // release tagged `v<version>`, so the Windows, macOS and Linux builds from
-    // CI collect in one release you review before publishing it.
+    // release tagged `v<version>`, so the Windows and macOS builds from CI
+    // collect in one release you review before publishing it.
     // The token is read from the GITHUB_TOKEN environment variable.
     new PublisherGitHub({
       repository: {
