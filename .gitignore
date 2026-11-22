@@ -7,6 +7,9 @@ out/
 dist/
 *.tsbuildinfo
 
+# Tour fixtures and downloaded release zips
+*.zip
+
 # OS / editor cruft
 .DS_Store
 *.log

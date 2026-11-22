@@ -6,7 +6,7 @@ import path from 'node:path';
 
 /**
  * Find the directory that contains a Marzipano tour (a `data.js` file).
- * 
+ *
  * Handles both layouts: the tour files sit directly in the folder, OR the
  * folder wraps the tour in a single top-level subfolder (common in ZIPs).
  * Returns the absolute path to the directory, or null if none is found.

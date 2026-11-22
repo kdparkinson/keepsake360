@@ -27,6 +27,7 @@ interface MarzipanoViewParameters {
 interface LinkHotspot {
   yaw: number;
   pitch: number;
+  /** Direction the arrow points, in radians; 0 points straight up. */
   rotation: number;
   target: string;
 }
@@ -101,6 +102,11 @@ function loadTourData(assetBase: string): Promise<MarzipanoAppData> {
   });
 }
 
+/** A north-pointing arrow, rotated per hotspot to point at the room it leads to. */
+const ARROW_SVG =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+  '<path fill="currentColor" d="M12 4 19 11.5h-4.5v8.5h-5v-8.5H5z" /></svg>';
+
 /** Add the tour's navigation and information hotspots to a scene. */
 function addHotspots(scene: any, sceneData: MarzipanoScene, scenes: Map<string, any>): void {
   const container = scene.hotspotContainer();
@@ -110,6 +116,15 @@ function addHotspots(scene: any, sceneData: MarzipanoScene, scenes: Map<string, 
     marker.type = 'button';
     marker.className = 'hotspot hotspot-link';
     marker.setAttribute('aria-label', 'Go to another room');
+
+    // The export's rotation is in radians, with 0 pointing straight up. Turn
+    // this inner element because Marzipano owns the marker's own transform.
+    const arrow = document.createElement('span');
+    arrow.className = 'hotspot-arrow';
+    arrow.innerHTML = ARROW_SVG;
+    arrow.style.transform = `rotate(${hotspot.rotation ?? 0}rad)`;
+    marker.append(arrow);
+
     marker.addEventListener('click', () => {
       scenes.get(hotspot.target)?.switchTo();
     });
