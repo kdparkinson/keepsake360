@@ -136,7 +136,13 @@ function addHotspots(scene: any, sceneData: MarzipanoScene, scenes: Map<string, 
     marker.type = 'button';
     marker.className = 'hotspot hotspot-info';
     marker.setAttribute('aria-label', 'Show information');
-    marker.textContent = 'i';
+
+    // Centred by the styles in viewer.html rather than by the marker's own
+    // layout, because Marzipano forces `display: block` on the marker.
+    const label = document.createElement('span');
+    label.className = 'hotspot-label';
+    label.textContent = 'i';
+    marker.append(label);
 
     // The label is revealed on hover/focus by the styles in viewer.html.
     const bubble = document.createElement('span');

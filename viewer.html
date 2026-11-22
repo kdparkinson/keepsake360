@@ -42,35 +42,50 @@
         line-height: 1.5;
         word-break: break-word;
       }
+      /* Marzipano pins a hotspot's top-left corner to the projected point and
+         forces `display: block` on it, so flexbox centring never applies. Centre
+         the circle on the point with negative margins (as Marzipano's sample tour
+         does) and centre its icon with absolute positioning instead. */
       .hotspot {
         position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        box-sizing: border-box;
         width: 24px;
         height: 24px;
+        margin: -12px 0 0 -12px;
         padding: 0;
         border: 2px solid #fff;
         border-radius: 50%;
         background: rgba(0, 0, 0, 0.35);
         color: #fff;
-        font:
-          600 13px/1 system-ui,
-          sans-serif;
         cursor: pointer;
       }
       .hotspot-link {
         background: rgba(0, 0, 0, 0.45);
       }
       .hotspot-arrow {
+        position: absolute;
+        top: 50%;
+        left: 50%;
         display: block;
         width: 14px;
         height: 14px;
+        /* Negative margins, not a transform: the arrow's rotation is an inline
+           transform that would otherwise replace any centring transform. */
+        margin: -7px 0 0 -7px;
       }
       .hotspot-arrow svg {
         display: block;
         width: 100%;
         height: 100%;
+      }
+      .hotspot-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font:
+          600 13px/1 system-ui,
+          sans-serif;
       }
       .hotspot-info .hotspot-bubble {
         display: none;
