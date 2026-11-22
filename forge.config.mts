@@ -3,15 +3,13 @@ import path from 'node:path';
 
 import type { ForgeConfig, ForgeMakeResult, ForgePlatform } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
-import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { PublisherGitHub } from '@electron-forge/publisher-github';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
-// Forge names the DMG without an OS (`keepsake360-1.0.0-universal.dmg`), the zip
-// after the packaged folder (`keepsake360-darwin-universal-1.0.0.zip`) and
+// Forge names the DMG without an OS (`keepsake360-1.0.0-universal.dmg`) and
 // Squirrel's installer after the package alone (`keepsake360-1.0.0 Setup.exe`),
 // which leaves the release page ambiguous about which download is for which OS.
 // Label the user-facing archives with the OS instead.
@@ -22,11 +20,16 @@ const OS_LABELS: Partial<Record<ForgePlatform, string>> = {
   linux: 'linux',
 };
 
-// Left alone on purpose: Squirrel's `.nupkg` and `RELEASES` files, because
-// Windows auto-updates look the package up by that exact name.
-const OS_LABELED_EXTENSIONS = ['.dmg', '.zip', '.exe'];
+const OS_LABELED_EXTENSIONS = ['.dmg', '.exe'];
 
-async function labelArtifactsByOs(makeResults: ForgeMakeResult[]): Promise<ForgeMakeResult[]> {
+// Squirrel also writes its auto-update feed: a `-full.nupkg` package plus a
+// `RELEASES` manifest. Nothing consumes them — the app has no updater and no
+// feed is published — so drop them rather than ship them in the release.
+const UPDATE_FEED_EXTENSIONS = ['.nupkg'];
+const UPDATE_FEED_NAMES = ['RELEASES'];
+
+/** Rename the user-facing archives per OS and drop the files we don't ship. */
+async function finalizeArtifacts(makeResults: ForgeMakeResult[]): Promise<ForgeMakeResult[]> {
   for (const result of makeResults) {
     const osLabel = OS_LABELS[result.platform];
     if (!osLabel) continue;
@@ -34,9 +37,20 @@ async function labelArtifactsByOs(makeResults: ForgeMakeResult[]): Promise<Forge
     const { name, productName, version } = result.packageJSON;
     const appName = String(productName ?? name);
 
-    result.artifacts = await Promise.all(
+    const artifacts = await Promise.all(
       result.artifacts.map(async (artifact) => {
         const extension = path.extname(artifact).toLowerCase();
+
+        // Delete the file as well as the result entry: the publisher uploads
+        // exactly the paths the results carry.
+        if (
+          UPDATE_FEED_EXTENSIONS.includes(extension) ||
+          UPDATE_FEED_NAMES.includes(path.basename(artifact))
+        ) {
+          await rm(artifact, { force: true });
+          return null;
+        }
+
         if (!OS_LABELED_EXTENSIONS.includes(extension)) return artifact;
 
         const suffix = extension === '.exe' ? ' Setup' : '';
@@ -53,6 +67,8 @@ async function labelArtifactsByOs(makeResults: ForgeMakeResult[]): Promise<Forge
         return renamed;
       }),
     );
+
+    result.artifacts = artifacts.filter((artifact): artifact is string => artifact !== null);
   }
 
   return makeResults;
@@ -88,10 +104,11 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
+    // Squirrel's `Setup.exe` installs on its own; the update-feed files it also
+    // writes are dropped by the hook below.
     new MakerSquirrel({}),
-    // The zip is kept for macOS auto-updates (Squirrel.Mac reads the zip); the
-    // DMG is what people download and drag into Applications.
-    new MakerZIP({}, ['darwin']),
+    // The DMG is what people download and drag into Applications. No zip is
+    // made: it only ever existed for a Squirrel.Mac update feed we don't have.
     new MakerDMG({ format: 'ULFO' }),
   ],
   publishers: [
@@ -115,8 +132,9 @@ const config: ForgeConfig = {
   ],
   hooks: {
     // Runs after the makers and before the GitHub publisher, which uploads the
-    // paths in the results, so the renamed files are what reach the release.
-    postMake: async (_forgeConfig, makeResults) => labelArtifactsByOs(makeResults),
+    // paths in the results, so the renamed files — and only those — reach the
+    // release.
+    postMake: async (_forgeConfig, makeResults) => finalizeArtifacts(makeResults),
   },
   plugins: [
     new VitePlugin({
