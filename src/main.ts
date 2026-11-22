@@ -191,11 +191,13 @@ async function importFromZip(): Promise<TourImportResult> {
 const createWindow = () => {
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    // Frameless keeps the viewer immersive and free of browser distractions.
-    frame: false,
+    // A standard frame, so the window gets native title-bar dragging and window
+    // buttons on both platforms, and Windows renders the app menu bar — which
+    // holds the only way to import another ZIP once a tour is on screen.
+    frame: true,
     width: 1280,
     height: 800,
-    // Avoid the white flash a frameless window shows before content loads.
+    // Avoid the white flash a window shows before its content loads.
     show: false,
     backgroundColor: '#111',
     webPreferences: {
@@ -210,9 +212,9 @@ const createWindow = () => {
   loadInitialContent();
 };
 
-// A minimal native menu keeps the app usable while the window is frameless:
-// it's the way to import a ZIP or quit. (A nicer in-window overlay is
-// planned for a later phase.)
+// A minimal native menu is the way to import a ZIP or quit: macOS puts it in the
+// system menu bar, and Windows draws it under the title bar. (A nicer in-window
+// overlay is planned for a later phase.)
 const buildMenu = () => {
   const template = [
     {
