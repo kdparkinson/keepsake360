@@ -59,18 +59,8 @@ h1 {
     opacity 0.15s ease;
 }
 
-.import-btn.secondary {
-  background: transparent;
-  border: 1px solid #555;
-  color: #e8e8e8;
-}
-
 .import-btn:hover:not(:disabled) {
   background: #fff;
-}
-
-.import-btn.secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .import-btn:disabled {

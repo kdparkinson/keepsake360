@@ -1,15 +1,14 @@
 /**
  * This file is loaded by Vite and runs in the "renderer" (Window) context.
  *
- * Its only job here is the landing experience: when the user picks a tour
- * source (folder or ZIP), ask the main process (via the preload bridge) to
- * load it, then react to the result.
+ * Its only job here is the landing experience: when the user picks a tour ZIP,
+ * ask the main process (via the preload bridge) to load it, then react to the
+ * result.
  */
 import './index.css';
 import type { TourImportResult } from './types';
 
 // These elements live in our own index.html, so they always exist.
-const importFolderBtn = document.querySelector<HTMLButtonElement>('#import-folder')!;
 const importZipBtn = document.querySelector<HTMLButtonElement>('#import-zip')!;
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
 
@@ -28,10 +27,6 @@ async function run(importer: () => Promise<TourImportResult>, label: string): Pr
   }
 }
 
-importFolderBtn.addEventListener(
-  'click',
-  () => void run(() => window.keepsake.importFolder(), 'Choosing a folder…'),
-);
 importZipBtn.addEventListener(
   'click',
   () => void run(() => window.keepsake.importZip(), 'Extracting the ZIP…'),

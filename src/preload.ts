@@ -7,16 +7,11 @@ import type { TourImportResult } from './types';
 // "Brain" (main process). Everything the renderer can do is listed here.
 const keepsake = {
   /**
-   * Ask the main process to open a folder picker and load the chosen tour.
-   * The main process performs the dialog, validates the folder, and — on
-   * success — switches the window to the tour. Returns the outcome so the
-   * renderer can react (e.g. show an error message).
-   */
-  importFolder: (): Promise<TourImportResult> => ipcRenderer.invoke('import:openFolder'),
-
-  /**
-   * Same as `importFolder`, but picks a `.zip` archive, extracts it to a temp
-   * directory, and loads the tour found inside.
+   * Ask the main process to open a `.zip` picker, extract the chosen archive to
+   * a temporary directory, and load the tour found inside. The main process
+   * performs the dialog, validates the archive, and — on success — switches the
+   * window to the tour. Returns the outcome so the renderer can react (e.g.
+   * show an error message).
    */
   importZip: (): Promise<TourImportResult> => ipcRenderer.invoke('import:openZip'),
 };

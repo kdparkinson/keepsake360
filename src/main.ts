@@ -103,14 +103,8 @@ function viewerUrl(): string {
 }
 
 /** Load a tour's directory into the universal viewer. */
-function loadTour(pathOrFile: string): void {
+function loadTour(dir: string): void {
   if (!mainWindow) return;
-
-  // If the path provided is a file (like an old index.html), get its parent directory.
-  let dir = pathOrFile;
-  if (pathOrFile.endsWith('index.html')) {
-    dir = path.dirname(pathOrFile);
-  }
 
   currentTourDir = dir;
 
@@ -151,37 +145,6 @@ function loadInitialContent(): void {
   } else {
     mainWindow?.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
-}
-
-/** Ask the user to pick a folder that contains a tour, then load it. */
-async function importFromFolder(): Promise<TourImportResult> {
-  if (!mainWindow) {
-    return { ok: false, error: 'The application window is not ready yet.' };
-  }
-
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Import Your Home',
-    properties: ['openDirectory'],
-  });
-
-  // The user dismissed the dialog — not an error, just a no-op.
-  if (result.canceled || result.filePaths.length === 0) {
-    return { ok: false, error: 'cancelled' };
-  }
-
-  const folder = result.filePaths[0];
-  const directory = findTourDirectory(folder);
-  if (!directory) {
-    return {
-      ok: false,
-      error: 'We couldn’t find a tour in that folder — no “data.js” was found. Please try again.',
-    };
-  }
-
-  // The "switch": remember this tour and load it, replacing the landing page.
-  rememberTour(directory);
-  loadTour(directory);
-  return { ok: true, directory };
 }
 
 /** Ask the user to pick a `.zip` archive, extract it, and load its tour. */
@@ -248,14 +211,13 @@ const createWindow = () => {
 };
 
 // A minimal native menu keeps the app usable while the window is frameless:
-// it's the way to import a tour or quit. (A nicer in-window overlay is
+// it's the way to import a ZIP or quit. (A nicer in-window overlay is
 // planned for a later phase.)
 const buildMenu = () => {
   const template = [
     {
       label: 'keepsake360',
       submenu: [
-        { label: 'Import Tour…', click: () => void importFromFolder() },
         { label: 'Import ZIP…', click: () => void importFromZip() },
         { type: 'separator' as const },
         { role: 'quit' as const },
@@ -269,7 +231,6 @@ const buildMenu = () => {
 // initialization and is ready to create browser windows.
 app.whenReady().then(() => {
   // Wire up the context bridge channels the renderer calls.
-  ipcMain.handle('import:openFolder', () => importFromFolder());
   ipcMain.handle('import:openZip', () => importFromZip());
 
   registerTourProtocol();
