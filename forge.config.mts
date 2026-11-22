@@ -69,7 +69,22 @@ const config: ForgeConfig = {
     // which leaves the x64 and arm64 slices with different file sets and breaks
     // the universal merge. Declaring it makes Packager sign the merged app once.
     // Replace `identity` with a Developer ID Application identity to ship signed.
-    osxSign: { identity: '-', identityValidation: false },
+    osxSign: {
+      identity: '-',
+      identityValidation: false,
+      // osx-sign's built-in entitlements leave `disable-library-validation` off
+      // for the main binary and the renderer/GPU helpers; only its plugin plist
+      // sets it. That is fine for a signature with a Team ID, but an ad-hoc
+      // signature has none, so under the hardened runtime dyld refuses to map
+      // the Electron Framework ("different Team IDs") and the app dies before
+      // it can draw a window. osx-sign 2.7 only honours entitlements returned
+      // from `optionsForFile` (a top-level `entitlements` is ignored), so return
+      // this file for every signed file, keeping the JIT permissions the
+      // helpers need.
+      optionsForFile: () => ({
+        entitlements: path.join(import.meta.dirname, 'entitlements.mac.plist'),
+      }),
+    },
   },
   rebuildConfig: {},
   makers: [
