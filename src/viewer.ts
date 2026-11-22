@@ -81,11 +81,11 @@ function showError(title: string, detail = ''): void {
 }
 
 /** Inject the tour's `data.js` and resolve with the data it defines. */
-function loadTourData(): Promise<MarzipanoAppData> {
+function loadTourData(assetBase: string): Promise<MarzipanoAppData> {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     // A timestamp avoids a stale cached data.js when switching tours quickly.
-    script.src = `${TOUR_ORIGIN}/data.js?t=${Date.now()}`;
+    script.src = `${assetBase}/data.js?t=${Date.now()}`;
 
     script.onload = () => {
       if (window.APP_DATA) {
@@ -142,9 +142,14 @@ async function init(): Promise<void> {
     return;
   }
 
+  // The main process works out which folder holds this tour's `data.js` and
+  // `tiles/`, since some exports wrap both in a subfolder (`app-files/`).
+  const assetRoot = (params.get('assets') ?? '').replace(/^\/+|\/+$/g, '');
+  const assetBase = assetRoot ? `${TOUR_ORIGIN}/${assetRoot}` : TOUR_ORIGIN;
+
   let appData: MarzipanoAppData;
   try {
-    appData = await loadTourData();
+    appData = await loadTourData(assetBase);
   } catch (error) {
     showError('Could not load this tour.', `${(error as Error).message} (${tourDir})`);
     return;
@@ -162,9 +167,10 @@ async function init(): Promise<void> {
   const scenes = new Map<string, any>();
 
   for (const sceneData of appData.scenes) {
-    // Standard Marzipano tile layout: tiles/<scene>/<z>/<face>/<y>/<x>.jpg
+    // Marzipano tile layout, inside whichever asset folder this tour uses:
+    // <assets>/tiles/<scene>/<z>/<face>/<y>/<x>.jpg
     const source = Marzipano.ImageUrlSource.fromString(
-      `${TOUR_ORIGIN}/tiles/${sceneData.id}/{z}/{f}/{y}/{x}.jpg`,
+      `${assetBase}/tiles/${sceneData.id}/{z}/{f}/{y}/{x}.jpg`,
     );
     const geometry = new Marzipano.CubeGeometry(sceneData.levels);
     const limiter = Marzipano.RectilinearView.limit.traditional(

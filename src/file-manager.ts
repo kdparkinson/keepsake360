@@ -29,6 +29,34 @@ export function findTourDirectory(dir: string): string | null {
 }
 
 /**
+ * Find the folder that holds a tour's `data.js` *and* its `tiles/`, relative
+ * to the tour directory, or null if no such pair exists.
+ *
+ * Marzipano exports usually put both straight in the tour folder (''), but
+ * larger exports wrap the app in a subfolder and leave a stale one-scene
+ * `data.js` at the top level — the real data lives in `app-files/data.js`
+ * beside `app-files/tiles/`. The viewer builds its own asset URLs, so it has
+ * to load the `data.js` that matches the tiles rather than the first one found.
+ */
+export function findTourRoot(tourDir: string): string | null {
+  const holdsTour = (dir: string) =>
+    existsSync(path.join(dir, 'data.js')) && existsSync(path.join(dir, 'tiles'));
+
+  if (holdsTour(tourDir)) {
+    return '';
+  }
+
+  for (const entry of readdirSync(tourDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (holdsTour(path.join(tourDir, entry.name))) {
+      return entry.name;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Extract a `.zip` archive into a fresh, unique temporary directory and
  * return the absolute path to that directory.
  *

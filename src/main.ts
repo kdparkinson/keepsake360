@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
 import type { TourImportResult } from './types';
 import { forgetTour, getLastTour, rememberTour } from './store';
-import { extractZipToTemp, findTourDirectory } from './file-manager';
+import { extractZipToTemp, findTourDirectory, findTourRoot } from './file-manager';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -114,9 +114,14 @@ function loadTour(pathOrFile: string): void {
 
   currentTourDir = dir;
 
+  // Exports differ in where the tour's assets sit (`data.js` + `tiles/` at the
+  // top, or wrapped in `app-files/`), so tell the viewer which folder to use.
+  const assetRoot = findTourRoot(dir) ?? '';
+
   // Construct the URL for the universal viewer with the directory as a parameter.
   const url = new URL(viewerUrl());
   url.searchParams.set('dir', dir);
+  url.searchParams.set('assets', assetRoot);
 
   mainWindow.loadURL(url.href);
 }
