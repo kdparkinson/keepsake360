@@ -1,41 +1,86 @@
-# Implementation Roadmap: Project Home Legacy
+# Implementation Roadmap
 
-## Phase 1: The Skeleton (Foundations)
+What is built, and what is next. Shipped items describe the code as it stands;
+the final section is a set of candidates, not commitments.
 
-_Goal: A running Electron app that opens a blank, frameless window._
+## Phase 1 — The shell (done)
 
-1. **Project Scaffolding:** Initialize the project using Electron Forge and set up the directory structure (`src/main`, `src/renderer`, etc.).
-2. **The Basic Shell:** Create a main process that spawns a single, frameless `BrowserWindow`.
-3. **The "Hello World" Renderer:** Ensure the window displays a simple "Hello" message to confirm the connection between the Brain and the Window.
+- Electron Forge + Vite project with main, preload and renderer targets.
+- One `BrowserWindow`, standard native frame, dark background, no browser chrome.
+- A landing screen that says what the app is and offers to import.
 
-## Phase 2: The "Landing" Experience (Discovery)
+## Phase 2 — Import (done)
 
-_Goal: A functional app that can "find" a tour._
+- ZIP import through a native dialog.
+- The archive is extracted into a library folder rather than a temp directory,
+  because edits are written back into the tour.
+- The tour is found inside the archive (`data.js` at the root or in one wrapper
+  folder), and the folder that has both `data.js` and `tiles/` is treated as the
+  tour — bigger exports ship a stale top-level `data.js` beside `app-files/`.
+- A folder import was designed and then dropped: the archive is the format the
+  app writes, and only a tour archive reliably identifies a tour.
 
-1. **The Landing Page:** Create the `landing.html` (the "Import Your Home" screen).
-2. **File Selection (Folders):** Implement the "Select Folder" dialog in the Main process and pass the folder path to the Renderer.
-3. **The "Tour Loader" Logic:** Implement the logic to look inside the selected folder for `index.html`.
-4. **The "Switch" Mechanism:** Create the ability to tell the window: _"Stop showing the landing page, and start showing the content from this folder."_
+## Phase 3 — The library (done)
 
-## Phase 3: Memory & Sophistication (Persistence & ZIPs)
+- Tours live in `~/Documents/keepsake360/<slug>/`.
+- The start screen lists them: the tour's own name, its unique folder, open and
+  delete.
+- Delete asks for confirmation, removes the whole folder, and refuses the tour
+  that is open.
+- The last opened tour is remembered and reopened on launch; a missing one is
+  forgotten.
 
-_Goal: An app that remembers where it was and handles archives._
+## Phase 4 — Viewing (done)
 
-1. **The "Brain's Memory":** Implement `electron-store` so the app remembers the last used tour path.
-2. **The "Auto-Launch" Feature:** Modify the startup sequence so the app automatically skips the landing page if a valid tour was previously used.
-3. **The "ZIP" Engine:** Implement the `adm-zip` logic to extract archives into a temporary directory and load them as tours.
+- Marzipano viewer built in the window, one scene per room.
+- Link markers navigate; note markers reveal their text on hover or focus.
+- An unwritten note shows no bubble at all.
+- The camera survives everything the chrome does.
 
-## Phase 4: The "Polished" Experience (UX & UI)
+## Phase 5 — Editing (done)
 
-_Goal: A professional-feeling product._
+- View/Edit modes on one page, with no camera movement across the switch.
+- Add a note or a link at the camera's centre; drag any marker to move it.
+- Note text; link target; arrow direction on a dial that snaps to eighths of a
+  turn, with a guess applied when the link is created.
+- The selected hotspot's fields live in a popup beside the marker, clamped into
+  the window and dismissed by Escape, by tapping the room, or by deselecting.
+- Delete a hotspot from its popup.
+- Autosave into the tour's `data.js`, atomic write, with a `Saved` / `Not saved`
+  indicator.
+- Undo and redo over the whole document, one gesture per step.
+- The tour's name is editable in the chrome and is what the library lists.
 
-1. **The Minimalist Overlay:** Build the small, semi-transparent menu icon and the "Exit/Import/Help" menu.
-2. **UI Styling:** Add CSS to the landing page and the overlay to make them feel "premium" and "minimalist."
-3. **Error Handling:** Add "graceful failures" (e.g., _"Oops, we couldn't find a valid tour in that folder. Please try again."_).
+## Phase 6 — Leaving (done)
 
-## Phase 5: The "Delivery" (CI/CD)
+- **Exit** flushes pending edits and returns to the library.
+- **Export & exit** zips the tour folder as-is, then leaves; a cancelled export
+  keeps the tour open.
+- Exported archives re-import here, open in a browser, and open in the hosted web
+  editor.
 
-_Goal: Generating the installers._
+## Phase 7 — Polish (done)
 
-1. **GitHub Actions Setup:** Create the workflow to automate builds for Windows, macOS, and Linux.
-2. **Release Testing:** Verify that the automated builds actually work and produce valid installers.
+- Popups kept on screen, then shortened to one line each.
+- The note field grows with the text.
+- Readable contrast on the landing screen's import button.
+- Focus lands in a new note's field.
+
+## Next — candidates
+
+Roughly in the order they would pay off:
+
+1. **Room management.** Rename, reorder and delete scenes. This is bigger than
+   it looks: the tour's own `index.html` carries a scene list, so a scene edit
+   has to keep that in step with `data.js`.
+2. **A stable tour identity.** A `.zip` re-imported becomes a second library
+   entry. A single-file container (`.ks360`) with a tour id would let an import
+   recognise a tour it already has. Best treated as an export container, not the
+   live format — the live format is `data.js` in a folder, which is what keeps
+   the tour openable everywhere else.
+3. **Arrow direction without a guess.** The current guess holds every new arrow
+   along the panorama's forward direction, which is arbitrary but consistent.
+   Two linked rooms could instead face each other: derive each arrow from the
+   pair and let the dial adjust it.
+4. **Tests.** The save writer and the library resolver are pure enough to test
+   under Node without a window; the undo stack likewise.

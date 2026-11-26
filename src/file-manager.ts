@@ -1,7 +1,5 @@
 import AdmZip from 'adm-zip';
-import { app } from 'electron';
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 /**
@@ -57,16 +55,14 @@ export function findTourRoot(tourDir: string): string | null {
 }
 
 /**
- * Extract a `.zip` archive into a fresh, unique temporary directory and
- * return the absolute path to that directory.
+ * Extract a `.zip` archive into `targetDir`, which the caller has already
+ * created (a folder in the tour library).
  *
  * adm-zip refuses to extract entries that escape the target path, so this is
  * safe against "zip-slip" path-traversal archives.
  */
-export function extractZipToTemp(zipPath: string): string {
-  const targetDir = path.join(app.getPath('temp'), 'keepsake360', randomUUID());
+export function extractZipTo(zipPath: string, targetDir: string): void {
   mkdirSync(targetDir, { recursive: true });
-  // `overwrite = true` so a (very unlikely) reused id can't half-extract.
+  // `overwrite = true` so a reused folder name can't half-extract.
   new AdmZip(zipPath).extractAllTo(targetDir, true);
-  return targetDir;
 }

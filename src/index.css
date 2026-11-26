@@ -10,21 +10,36 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
   height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+  overflow: hidden;
   color: #e8e8e8;
   background: #111;
 }
 
+#app {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app[data-state='landing'] #stage {
+  display: none;
+}
+
+#app:not([data-state='landing']) #landing {
+  display: none;
+}
+
 .landing {
+  height: 100%;
   max-width: 38rem;
+  margin: 0 auto;
   padding: 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 1rem;
+  text-align: center;
 }
 
 h1 {
@@ -49,8 +64,10 @@ h1 {
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
   font-weight: 500;
-  color: #fff;
-  background: #e8e8e8;
+  /* Dark on the app's amber: white on the old near-white fill was barely
+     readable. */
+  color: #17130b;
+  background: #d9a441;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -60,7 +77,7 @@ h1 {
 }
 
 .import-btn:hover:not(:disabled) {
-  background: #fff;
+  background: #e6b557;
 }
 
 .import-btn:disabled {
@@ -73,4 +90,610 @@ h1 {
   margin: 0;
   font-size: 0.9rem;
   color: #d9534f;
+}
+
+.status[data-tone='info'] {
+  color: #a8d5a8;
+}
+
+/* The tour library, so exiting a tour is not a dead end. */
+
+.library {
+  width: 100%;
+  max-width: 26rem;
+  margin-top: 0.5rem;
+}
+
+.library-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #7f858c;
+}
+
+.library-list {
+  display: flex;
+  max-height: 38vh;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.library-item {
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+}
+
+.library-tour {
+  flex: 1;
+  min-width: 0;
+  padding: 0.6rem 0.8rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #e8e8e8;
+  text-align: left;
+  background: #1b1b1b;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.library-tour:hover {
+  background: #202020;
+  border-color: #3d3d3d;
+}
+
+.library-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The tour's own name is often a generic "Untitled Project" from the export,
+   so the library folder is what actually distinguishes two tours. */
+.library-folder {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: #7f858c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-delete {
+  padding: 0 0.7rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: #8c9299;
+  background: #171717;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.library-delete:hover {
+  color: #ffb3ae;
+  border-color: #6b3330;
+  background: #1e1616;
+}
+
+/* The tour surface. */
+
+#stage {
+  position: absolute;
+  inset: 0;
+}
+
+.pano {
+  width: 100%;
+  height: 100%;
+}
+
+.stage-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 24px;
+  color: #aaa;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+}
+
+.stage-status:empty {
+  display: none;
+}
+
+/* Mode chrome, laid over the tour without intercepting drags. */
+
+.chrome {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+
+.chrome button,
+.chrome input {
+  pointer-events: auto;
+}
+
+.chrome-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* The tour's name doubles as its rename field: it reads as a title until it is
+   hovered or focused. */
+.tour-name-input {
+  min-width: 8rem;
+  max-width: 40vw;
+  padding: 0.15rem 0.35rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f2f2f2;
+  text-overflow: ellipsis;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  field-sizing: content;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.tour-name-input:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.tour-name-input:focus {
+  background: rgba(12, 12, 12, 0.75);
+  border-color: #d9a441;
+  outline: none;
+}
+
+.tour-name-input::placeholder {
+  font-weight: 500;
+  color: #8c9299;
+}
+
+.detail {
+  color: #cfd3d8;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.save-state {
+  color: #a8d5a8;
+  font-size: 0.75rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.save-state:empty {
+  display: none;
+}
+
+.modes {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(18, 18, 18, 0.72);
+}
+
+.modes button {
+  padding: 0.3rem 0.8rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #b9bec4;
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.modes button[aria-pressed='true'] {
+  color: #111;
+  background: #e8e8e8;
+}
+
+.modes button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#exit-tour {
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: #cfd3d8;
+  background: rgba(18, 18, 18, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+#exit-tour:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.exit-wrap {
+  position: relative;
+  display: flex;
+}
+
+.exit-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  min-width: 9rem;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(16, 16, 16, 0.94);
+  pointer-events: auto;
+}
+
+.exit-menu[hidden] {
+  display: none;
+}
+
+.exit-menu button {
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: #e8e8e8;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.exit-menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* The edit bar: adding hotspots, and the fields for the selected one. */
+
+.edit-bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: none;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem 0.85rem;
+  background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.72));
+  font-size: 0.8rem;
+}
+
+#app[data-state='edit'] .edit-bar {
+  display: flex;
+}
+
+.edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.edit-spacer {
+  margin-left: auto;
+}
+
+.edit-bar button {
+  padding: 0.35rem 0.7rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: #e8e8e8;
+  background: rgba(18, 18, 18, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.edit-bar button:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.edit-bar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The selected hotspot's editor, mounted by Marzipano as a hotspot. Marzipano
+   positions that element, so keep it a zero-size anchor and hang the panel
+   below it, centred on the marker. */
+.hotspot-editor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.hotspot-editor[hidden] {
+  display: none;
+}
+
+/* Positioned by the engine, which keeps it inside the window; the offsets here
+   are only the resting place before its first measurement. */
+.editor-panel {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: max-content;
+  max-width: min(22rem, 70vw);
+  padding: 0.4rem 0.45rem;
+  font-size: 0.78rem;
+  pointer-events: auto;
+  background: rgba(10, 10, 10, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+/* `hidden` has to beat `.edit-row`'s flex display, as it does in the bar. */
+.editor-panel [hidden] {
+  display: none;
+}
+
+/* One row, always: the select shrinks rather than pushing the dial or the
+   trash onto a second line. */
+.editor-panel .edit-row {
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+}
+
+/* Delete sits in the popup's row, because it acts on the hotspot that row
+   edits. */
+.editor-delete {
+  display: grid;
+  flex: none;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  color: #ffb3ae;
+  background: rgba(60, 18, 18, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  cursor: pointer;
+  place-items: center;
+}
+
+.editor-delete svg {
+  width: 13px;
+  height: 13px;
+}
+
+.editor-delete:hover {
+  color: #ffd9d5;
+  border-color: #d9534f;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #b9bec4;
+  white-space: nowrap;
+}
+
+.field input,
+.field select,
+.field textarea {
+  flex: 1;
+  min-width: 0;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: #f2f2f2;
+  background: rgba(12, 12, 12, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: #d9a441;
+  outline: none;
+}
+
+/* A note grows with what is written in it — one line to start, as tall as the
+   text needs after that, and scrolling only once it hits the ceiling. */
+.field textarea {
+  min-width: 12rem;
+  max-height: 9rem;
+  line-height: 1.35;
+  resize: none;
+  field-sizing: content;
+  overflow-y: auto;
+}
+
+/* The arrow's direction, as a ring with a pip you drag around it. The pip is
+   a full-size wrapper turned about the centre, so the dot rides the ring. */
+.dial {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  background: rgba(12, 12, 12, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.dial:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.dial:focus-visible,
+.dial.dragging {
+  border-color: #d9a441;
+  cursor: grabbing;
+  outline: none;
+}
+
+.dial-pip {
+  position: absolute;
+  inset: 0;
+}
+
+.dial-pip::after {
+  position: absolute;
+  top: 1px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  content: '';
+  background: #d9a441;
+  border-radius: 50%;
+}
+
+/* Editing always announces itself: the chrome picks up an amber rule. */
+#app[data-state='edit'] .chrome {
+  box-shadow: inset 0 2px 0 #d9a441;
+}
+
+/* Hotspots. Marzipano pins a hotspot's top-left corner to the projected point
+   and forces `display: block` on it, so flexbox centring never applies. Centre
+   the circle on the point with negative margins (as Marzipano's sample tour
+   does) and centre its icon with absolute positioning instead. */
+
+.hotspot {
+  position: relative;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  cursor: pointer;
+}
+
+.hotspot-link {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.hotspot-arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 14px;
+  height: 14px;
+  /* Negative margins, not a transform: the arrow's rotation is an inline
+     transform that would otherwise replace any centring transform. */
+  margin: -7px 0 0 -7px;
+}
+
+.hotspot-arrow svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hotspot-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font:
+    600 13px/1 system-ui,
+    sans-serif;
+}
+
+.hotspot-info .hotspot-bubble {
+  display: none;
+}
+
+.hotspot-bubble {
+  position: absolute;
+  bottom: 140%;
+  left: 50%;
+  width: 220px;
+  padding: 8px 10px;
+  transform: translateX(-50%);
+  border-radius: 8px;
+  background: rgba(20, 20, 20, 0.92);
+  font:
+    400 13px/1.4 system-ui,
+    sans-serif;
+  text-align: left;
+  pointer-events: none;
+}
+
+.hotspot-info:hover .hotspot-bubble,
+.hotspot-info:focus-visible .hotspot-bubble {
+  display: block;
+}
+
+/* A note that has been placed but not written yet should show nothing at all,
+   rather than an empty black box. */
+.hotspot-bubble:empty,
+.hotspot-info:hover .hotspot-bubble:empty,
+.hotspot-info:focus-visible .hotspot-bubble:empty {
+  display: none;
+}
+
+/* Edit mode: markers read as handles rather than destinations. */
+
+.pano[data-mode='edit'] .hotspot {
+  border-style: dashed;
+  cursor: grab;
+  /* The marker owns its gesture in edit mode, so the browser must not turn a
+     drag into a scroll. */
+  touch-action: none;
+}
+
+.pano[data-mode='edit'] .hotspot.dragging {
+  border-style: solid;
+  cursor: grabbing;
+}
+
+.pano[data-mode='edit'] .hotspot-info:hover .hotspot-bubble,
+.pano[data-mode='edit'] .hotspot-info:focus-visible .hotspot-bubble {
+  display: none;
+}
+
+.hotspot.selected {
+  border-style: solid;
+  border-color: #d9a441;
+  box-shadow: 0 0 0 4px rgba(217, 164, 65, 0.28);
 }

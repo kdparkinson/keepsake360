@@ -1,18 +1,140 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>keepsake360</title>
   </head>
   <body>
-    <main class="landing">
-      <h1>🏠 keepsake360</h1>
-      <p class="subtitle">Preserve the essence of your home in 360°.</p>
-      <div class="actions">
-        <button id="import-zip" class="import-btn" type="button">Import a ZIP File</button>
+    <!-- One page, three states: landing, view, edit. The state lives on #app so
+         CSS can swap the screens and the engine only has to redraw markers. -->
+    <div id="app" data-state="landing">
+      <section id="landing" class="landing">
+        <h1>🏠 keepsake360</h1>
+        <p class="subtitle">Preserve the essence of your home in 360°.</p>
+        <div class="actions">
+          <button id="import-zip" class="import-btn" type="button">Import a ZIP File</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+        <!-- Exiting a tour lands here, so the library has to be reachable from
+             it — otherwise the only way back into a tour is re-importing it. -->
+        <div id="library" class="library" hidden>
+          <h2 class="library-title">Your tours</h2>
+          <ul id="library-list" class="library-list"></ul>
+        </div>
+      </section>
+
+      <div id="stage">
+        <div id="pano" class="pano"></div>
+        <p id="stage-status" class="stage-status" role="status" aria-live="polite"></p>
+        <div class="chrome">
+          <input
+            id="tour-name"
+            class="tour-name-input"
+            type="text"
+            maxlength="120"
+            placeholder="Untitled tour"
+            aria-label="Tour name"
+            spellcheck="false"
+          />
+          <div class="chrome-actions">
+            <span id="save-state" class="save-state" role="status" aria-live="polite"></span>
+            <span id="detail" class="detail" role="status" aria-live="polite"></span>
+            <div class="modes" role="group" aria-label="Mode">
+              <button id="mode-view" type="button" aria-pressed="true">View</button>
+              <button id="mode-edit" type="button" aria-pressed="false">Edit</button>
+            </div>
+            <div class="exit-wrap">
+              <button
+                id="exit-tour"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                title="Leave this tour"
+              >
+                Exit
+              </button>
+              <div id="exit-menu" class="exit-menu" role="menu" hidden>
+                <button id="exit-plain" type="button" role="menuitem">Exit</button>
+                <button id="exit-export" type="button" role="menuitem">Export &amp; exit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- The selected hotspot's editor. It appears only while something is
+             selected, and Marzipano mounts it into the hotspot layer as a
+             hotspot of its own, so it stays beside its marker as the camera
+             moves, without the app measuring anything each frame. -->
+        <div id="editor" class="hotspot-editor" role="group" aria-label="Selected hotspot" hidden>
+          <!-- Each row is one line: the content beside the trash, which the
+               renderer moves into whichever row the selection shows. -->
+          <div class="editor-panel">
+            <div id="info-fields" class="edit-row" hidden>
+              <div class="field">
+                <textarea
+                  id="info-text"
+                  rows="1"
+                  placeholder="Note text"
+                  aria-label="Note text"
+                ></textarea>
+              </div>
+              <button
+                id="delete-hotspot"
+                class="editor-delete"
+                type="button"
+                title="Delete this hotspot"
+                aria-label="Delete this hotspot"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 5h12l-1 13H7L6 8Zm3 2v9h1.5v-9H9Zm3.5 0v9H14v-9h-1.5Z"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div id="link-field" class="edit-row" hidden>
+              <div class="field">
+                <select id="link-target" aria-label="Link to room" title="Link to room"></select>
+              </div>
+              <!-- New links guess a rotation; this is the override, and it is
+                   what gets saved. Drag the pip around the ring, or use the
+                   arrow keys, to turn it an eighth of a turn at a time. -->
+              <div
+                id="link-rotation"
+                class="dial"
+                role="slider"
+                tabindex="0"
+                aria-label="Arrow direction"
+                aria-valuemin="-180"
+                aria-valuemax="180"
+                aria-valuenow="0"
+                aria-valuetext="0°"
+              >
+                <span class="dial-pip"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Editing tools, shown only in edit mode. A new hotspot appears where
+             the camera is looking, so it is always somewhere you can see. -->
+        <div class="edit-bar">
+          <div class="edit-row">
+            <button id="add-note" type="button">+ Note</button>
+            <button id="add-link" type="button">+ Link</button>
+            <span class="edit-spacer"></span>
+            <button id="undo" class="history" type="button" title="Undo (⌘Z)" disabled>
+              ↶ Undo
+            </button>
+            <button id="redo" class="history" type="button" title="Redo (⇧⌘Z)" disabled>
+              ↷ Redo
+            </button>
+          </div>
+        </div>
       </div>
-      <p id="status" class="status" role="status" aria-live="polite"></p>
-    </main>
+    </div>
     <script type="module" src="/src/renderer.ts"></script>
   </body>
 </html>

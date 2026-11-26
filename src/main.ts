@@ -1,12 +1,22 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from 'electron';
+import AdmZip from 'adm-zip';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
-import type { TourImportResult } from './types';
+import type {
+  DeleteResult,
+  ExportResult,
+  LoadedTour,
+  SaveResult,
+  TourImportResult,
+  TourSummary,
+} from './types';
+import type { TourAppData } from './tour/types';
 import { forgetTour, getLastTour, rememberTour } from './store';
-import { extractZipToTemp, findTourDirectory, findTourRoot } from './file-manager';
+import { findTourDirectory, findTourRoot } from './file-manager';
+import { importZipToLibrary, libraryRoot, listTours as listLibraryTours } from './library';
+import { writeTourData } from './tour-file';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -16,9 +26,9 @@ if (started) {
 // Kept at module scope so the IPC handlers can reach the live window.
 let mainWindow: BrowserWindow | null = null;
 
-// Tours live outside the app bundle (a chosen folder, or a ZIP extracted to a
-// temp directory), so they are served to the viewer over this custom scheme
-// instead of file:// (which the dev server's http:// page cannot load).
+// Tours live outside the app bundle (a folder in the tour library), so they are
+// served to the renderer over this custom scheme instead of file:// (which the
+// dev server's http:// page cannot load).
 const TOUR_SCHEME = 'keepsake-tour';
 
 // Tour assets are plain files, so map the extensions a Marzipano export uses.
@@ -50,8 +60,12 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 // The directory of the tour currently on screen; the protocol handler serves
-// its files (data.js, tiles, …).
+// its files (data.js, tiles, …) and a save writes back into it.
 let currentTourDir: string | null = null;
+
+// The tour the renderer should open, in the shape the viewer needs. Null means
+// the window shows its landing screen.
+let currentTour: LoadedTour | null = null;
 
 /** Serve the current tour's files over the `keepsake-tour://` scheme. */
 function registerTourProtocol(): void {
@@ -90,64 +104,202 @@ function registerTourProtocol(): void {
   });
 }
 
-/** The URL of the viewer page in whichever mode we are running. */
-function viewerUrl(): string {
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    // In development the renderer is served by Vite, which also serves viewer.html.
-    return new URL('viewer.html', MAIN_WINDOW_VITE_DEV_SERVER_URL).href;
+/** Describe a tour folder the way the renderer expects it. */
+function tourPayload(dir: string): LoadedTour {
+  // Exports differ in where the tour's assets sit (`data.js` + `tiles/` at the
+  // top, or wrapped in `app-files/`), so work out which folder to load from.
+  const root = findTourRoot(dir);
+  if (root !== null) {
+    return { directory: dir, assets: root };
   }
 
-  // Packaged builds emit viewer.html beside index.html in the renderer output.
-  return pathToFileURL(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/viewer.html`))
-    .href;
-}
-
-/** Load a tour's directory into the universal viewer. */
-function loadTour(dir: string): void {
-  if (!mainWindow) return;
-
-  currentTourDir = dir;
-
-  // Exports differ in where the tour's assets sit (`data.js` + `tiles/` at the
-  // top, or wrapped in `app-files/`), so tell the viewer which folder to use.
-  const assetRoot = findTourRoot(dir) ?? '';
-
-  // Construct the URL for the universal viewer with the directory as a parameter.
-  const url = new URL(viewerUrl());
-  url.searchParams.set('dir', dir);
-  url.searchParams.set('assets', assetRoot);
-
-  mainWindow.loadURL(url.href);
+  // A tour whose `tiles/` are missing still has to have its `data.js` saved
+  // back where it actually lives, rather than beside it.
+  const dataDir = findTourDirectory(dir);
+  const assets = dataDir ? path.relative(dir, dataDir).split(path.sep).join('/') : '';
+  return { directory: dir, assets };
 }
 
 /**
- * Decide what to show first: if we remember a tour that still exists on disk,
- * auto-launch it; otherwise show the "Import Your Home" landing page.
+ * Open a tour. The window is not navigated — it already holds the landing,
+ * view and edit states — so this only hands the renderer a new tour, which
+ * replaces whatever was on screen without a page load.
  */
-function loadInitialContent(): void {
+function openTour(dir: string): LoadedTour {
+  currentTourDir = dir;
+  currentTour = tourPayload(dir);
+  rememberTour(dir);
+  mainWindow?.webContents.send('tour:load', currentTour);
+  return currentTour;
+}
+
+/** Drop the open tour so the window returns to its landing screen. */
+function closeTour(): void {
+  currentTourDir = null;
+  currentTour = null;
+  // Also forget it, so the next launch does not silently reopen what was
+  // closed.
+  forgetTour();
+}
+
+/**
+ * On launch, remember the last tour if it is still on disk. The renderer pulls
+ * it with `tour:current` once its own scripts are running.
+ */
+function restoreLastTour(): void {
   const stored = getLastTour();
 
-  if (stored && existsSync(stored)) {
-    loadTour(stored);
+  // Tours imported before the library existed were extracted into the OS temp
+  // directory, where an edit cannot survive. Treat those as gone rather than
+  // letting someone edit a folder that is about to be reaped.
+  const usable = stored && existsSync(stored) && !stored.startsWith(app.getPath('temp') + path.sep);
+
+  if (stored && usable) {
+    currentTourDir = stored;
+    currentTour = tourPayload(stored);
     return;
   }
 
   // A remembered path that no longer exists means the tour was moved/deleted —
-  // forget it so we stop failing on it, then fall through to the landing page.
+  // forget it so we stop failing on it, then show the landing page.
   if (stored) {
     forgetTour();
   }
+}
 
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow?.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-    // Open the DevTools only while running against the dev server.
-    mainWindow?.webContents.openDevTools();
-  } else {
-    mainWindow?.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+/**
+ * Write the open tour's data back to its `data.js`.
+ *
+ * Only the tour that is actually open may be saved, so a renderer mistake
+ * cannot overwrite some other folder.
+ */
+async function saveTour(directory: string, assets: string, data: TourAppData): Promise<SaveResult> {
+  if (!currentTour || directory !== currentTour.directory) {
+    return { ok: false, error: 'That tour is not open any more.' };
+  }
+
+  if (!data || !Array.isArray(data.scenes)) {
+    return { ok: false, error: 'There was nothing to save.' };
+  }
+
+  try {
+    await writeTourData(directory, assets, data);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
   }
 }
 
-/** Ask the user to pick a `.zip` archive, extract it, and load its tour. */
+/** The tours in the library, as the landing screen lists them. */
+function listTours(): TourSummary[] {
+  return listLibraryTours().map((entry) => ({
+    ...tourPayload(entry.directory),
+    name: entry.name,
+    folder: entry.folder,
+  }));
+}
+
+/**
+ * Open a tour that is already in the library.
+ *
+ * Only folders inside the library are accepted, so the renderer cannot ask the
+ * main process to open — and then save edits into — any folder on the disk.
+ */
+function openLibraryTour(directory: string): TourImportResult {
+  const root = path.resolve(libraryRoot());
+  const requested = path.resolve(directory);
+
+  if (requested !== root && !requested.startsWith(root + path.sep)) {
+    return { ok: false, error: 'That folder is not in your tour library.' };
+  }
+
+  const tourDir = findTourDirectory(requested);
+  if (!tourDir) {
+    return { ok: false, error: 'That tour could not be found any more.' };
+  }
+
+  return { ok: true, tour: openTour(tourDir) };
+}
+
+/**
+ * Delete a tour from the library, after asking.
+ *
+ * The whole library folder goes, not just the directory holding `data.js`:
+ * an archive that wrapped its files in a subfolder would otherwise leave that
+ * wrapper behind as an empty, unopenable entry.
+ */
+async function deleteLibraryTour(directory: string): Promise<DeleteResult> {
+  if (!mainWindow) {
+    return { ok: false, error: 'The application window is not ready yet.' };
+  }
+
+  const root = path.resolve(libraryRoot());
+  const requested = path.resolve(directory);
+
+  if (requested === root || !requested.startsWith(root + path.sep)) {
+    return { ok: false, error: 'That folder is not in your tour library.' };
+  }
+
+  if (currentTourDir && path.resolve(currentTourDir) === requested) {
+    return { ok: false, error: 'That tour is open — exit it before deleting it.' };
+  }
+
+  const folder = path.join(root, path.relative(root, requested).split(path.sep)[0]);
+
+  const answer = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    buttons: ['Cancel', 'Delete'],
+    defaultId: 0,
+    cancelId: 0,
+    message: `Delete “${path.basename(folder)}”?`,
+    detail: `This removes the tour folder and its tiles from your library.\n\n${folder}\n\nIt cannot be undone.`,
+  });
+
+  if (answer.response !== 1) {
+    return { ok: false, error: 'cancelled' };
+  }
+
+  try {
+    await rm(folder, { recursive: true, force: true });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Zip the open tour into a single archive the user picks a place for.
+ *
+ * The tour folder is archived as-is, so the result is an ordinary Marzipano
+ * tour archive: it imports back into this app, and opens in a browser or any
+ * Marzipano viewer without this app at all.
+ */
+async function exportOpenTour(): Promise<ExportResult> {
+  if (!mainWindow || !currentTourDir) {
+    return { ok: false, error: 'No tour is open.' };
+  }
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Export tour',
+    defaultPath: path.join(app.getPath('documents'), `${path.basename(currentTourDir)}.zip`),
+    filters: [{ name: 'Tour archive', extensions: ['zip'] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { ok: false, error: 'cancelled' };
+  }
+
+  try {
+    const archive = new AdmZip();
+    archive.addLocalFolder(currentTourDir);
+    await writeFile(result.filePath, archive.toBuffer());
+    return { ok: true, path: result.filePath };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/** Ask the user to pick a `.zip` archive, copy it into the library, and open it. */
 async function importFromZip(): Promise<TourImportResult> {
   if (!mainWindow) {
     return { ok: false, error: 'The application window is not ready yet.' };
@@ -165,12 +317,11 @@ async function importFromZip(): Promise<TourImportResult> {
 
   const zipPath = result.filePaths[0];
 
-  // Extract to a temp dir and locate the tour. A malformed archive throws —
-  // treat that as "no tour found" rather than crashing the app.
+  // A malformed archive throws — treat that as "no tour found" rather than
+  // crashing the app. Either way the library folder is cleaned up for us.
   let directory: string | null;
   try {
-    const dir = extractZipToTemp(zipPath);
-    directory = findTourDirectory(dir);
+    directory = importZipToLibrary(zipPath);
   } catch {
     directory = null;
   }
@@ -183,9 +334,7 @@ async function importFromZip(): Promise<TourImportResult> {
     };
   }
 
-  rememberTour(directory);
-  loadTour(directory);
-  return { ok: true, directory };
+  return { ok: true, tour: openTour(directory) };
 }
 
 const createWindow = () => {
@@ -209,18 +358,30 @@ const createWindow = () => {
     mainWindow?.show();
   });
 
-  loadInitialContent();
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    // Open the DevTools only while running against the dev server.
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+  }
 };
 
-// A minimal native menu is the way to import a ZIP or quit: macOS puts it in the
-// system menu bar, and Windows draws it under the title bar. (A nicer in-window
-// overlay is planned for a later phase.)
+// A minimal native menu is the way to import a ZIP, reveal the tour in Finder,
+// or quit: macOS puts it in the system menu bar, and Windows draws it under the
+// title bar.
 const buildMenu = () => {
   const template = [
     {
       label: 'keepsake360',
       submenu: [
         { label: 'Import ZIP…', click: () => void importFromZip() },
+        {
+          label: 'Show Tour Folder',
+          click: () => {
+            if (currentTourDir) void shell.openPath(currentTourDir);
+          },
+        },
         { type: 'separator' as const },
         { role: 'quit' as const },
       ],
@@ -233,10 +394,20 @@ const buildMenu = () => {
 // initialization and is ready to create browser windows.
 app.whenReady().then(() => {
   // Wire up the context bridge channels the renderer calls.
-  ipcMain.handle('import:openZip', () => importFromZip());
+  ipcMain.handle('tour:importZip', () => importFromZip());
+  ipcMain.handle('tour:current', () => currentTour);
+  ipcMain.handle('tour:close', () => closeTour());
+  ipcMain.handle('tour:list', () => listTours());
+  ipcMain.handle('tour:open', (_event, directory: string) => openLibraryTour(directory));
+  ipcMain.handle('tour:export', () => exportOpenTour());
+  ipcMain.handle('tour:delete', (_event, directory: string) => deleteLibraryTour(directory));
+  ipcMain.handle('tour:save', (_event, directory: string, assets: string, data: TourAppData) =>
+    saveTour(directory, assets, data),
+  );
 
   registerTourProtocol();
   buildMenu();
+  restoreLastTour();
   createWindow();
 });
 
@@ -257,6 +428,3 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put additional code in separate files and import it here.
