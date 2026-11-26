@@ -216,6 +216,106 @@ h1 {
   display: none;
 }
 
+/* The scene nav: every scene in the tour, down the left edge, each a square of
+   its starting view. It is a sibling of the pano rather than a layer inside it,
+   so picking a scene never reaches the camera's drag handlers — and because it
+   comes after the pano in the page, it paints over it without a z-index. */
+
+.scene-nav {
+  position: absolute;
+  top: 3.4rem;
+  bottom: 1rem;
+  left: 0.9rem;
+  display: flex;
+  padding: 0.45rem;
+  background: rgba(10, 10, 10, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+}
+
+.scene-nav[hidden] {
+  display: none;
+}
+
+/* The edit bar owns the bottom of the stage, so the nav stops above it. */
+#app[data-state='edit'] .scene-nav {
+  bottom: 4.4rem;
+}
+
+.scene-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+/* A row keeps its height when the list overflows, so the nav scrolls rather
+   than squashing the snapshots. */
+.scene-nav-row {
+  flex: none;
+}
+
+.scene-nav-item {
+  display: flex;
+  width: 128px;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #cfd3d8;
+  text-align: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  cursor: pointer;
+}
+
+.scene-nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.scene-nav-item:focus-visible {
+  border-color: #d9a441;
+  outline: none;
+}
+
+.scene-nav-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #232323;
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.scene-nav-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scene-nav-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The scene on screen, whether it was reached from the nav or by an arrow. */
+.scene-nav-item[aria-current='true'] {
+  color: #f4e3bf;
+  background: rgba(217, 164, 65, 0.14);
+  border-color: #d9a441;
+}
+
 /* Mode chrome, laid over the tour without intercepting drags. */
 
 .chrome {

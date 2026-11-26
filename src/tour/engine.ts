@@ -39,6 +39,11 @@ export interface TourEngineOptions {
   editor?: HTMLElement;
   onSelectionChange?: (selection: HotspotSelection | null) => void;
   /**
+   * Called when the tour walks into a room — by a link marker, by the shell's
+   * scene nav, or by opening the tour — so the chrome can show where it is.
+   */
+  onSceneChange?: (sceneId: string) => void;
+  /**
    * Called once an edit has changed the tour data, so the shell can save it.
    * `label` names the kind of change (`text:<scene>:<index>`, `move:…`), which
    * is what lets the shell fold a burst of typing into one undo step.
@@ -61,6 +66,8 @@ export interface TourEngine {
   setLinkRotation(rotation: number): void;
   /** Delete the selected hotspot. */
   removeSelected(): void;
+  /** Walk into a room, as a link marker would. */
+  goToScene(sceneId: string): void;
   /** Drop the selection, which puts the editing popup away. */
   clearSelection(): void;
   /** Rename the tour — the `name` the archive carries and the library shows. */
@@ -258,11 +265,20 @@ export function createTourEngine(
     options.onSelectionChange?.(marker ? marker.selection : null);
   }
 
+  /**
+   * Walk into a room.
+   *
+   * The selection does not survive it: the editing popup is mounted in the old
+   * scene's hotspot container, where it would otherwise be left behind.
+   */
   function goToScene(sceneId: string): void {
     const scene = scenes.get(sceneId);
     if (!scene) return;
+
+    applySelection(null);
     scene.switchTo();
     currentSceneId = sceneId;
+    options.onSceneChange?.(sceneId);
   }
 
   /** A client-coordinate point, projected back onto a scene, as yaw/pitch. */
@@ -714,6 +730,7 @@ export function createTourEngine(
     setLinkTarget,
     setLinkRotation,
     removeSelected,
+    goToScene,
     clearSelection,
     setTourName,
     setData,

@@ -12,6 +12,9 @@ Built with Electron, Vite and [Marzipano](https://www.marzipano.net/).
   lists it on the start screen by its own name.
 - **Shows the tour** in a quiet window: drag to look around, click an arrow to
   walk into the next room, hover a note to read it.
+- **Walks scene to scene.** A scene nav down the left of the stage lists every
+  room as a square of its starting view; picking one goes there, and the scene
+  on screen is marked either way.
 - **Edits in place.** A View/Edit switch that never moves the camera; notes and
   links placed where you are looking, dragged into position, deleted from a
   popup beside the marker; a link's arrow set on a dial.

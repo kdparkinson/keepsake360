@@ -27,6 +27,12 @@
       <div id="stage">
         <div id="pano" class="pano"></div>
         <p id="stage-status" class="stage-status" role="status" aria-live="polite"></p>
+        <!-- Every scene in the tour, down the left edge. A scene is its own
+             square, so the list reads as a strip of places rather than a menu.
+             Rows are drawn by the renderer from the open tour's scenes. -->
+        <nav id="scene-nav" class="scene-nav" aria-label="Scenes" hidden>
+          <ul id="scene-nav-list" class="scene-nav-list"></ul>
+        </nav>
         <div class="chrome">
           <input
             id="tour-name"

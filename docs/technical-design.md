@@ -41,6 +41,7 @@ src/
 ├── store.ts             electron-store: the last opened tour
 ├── library.ts           library root, ZIP → folder, listTours (+ names)
 ├── library-view.ts      the landing screen's list rows
+├── scene-nav.ts         the scene nav beside the stage
 ├── file-manager.ts      find the tour inside an extracted archive
 ├── tour-file.ts         read/write a tour's data.js (atomic write)
 ├── history.ts           the snapshot undo stack
@@ -64,6 +65,9 @@ library view draws rows and reports clicks.
 - **Scenes are built once per tour.** Each scene has its own
   `RectilinearView` with the tour's initial parameters and the usual rectilinear
   limits.
+- **`goToScene(id)`** switches scene and reports the arrival through
+  `onSceneChange`, dropping the selection on the way out. Link markers and the
+  scene nav both use it, so "where the tour is" has one definition.
 - **Markers are buttons.** A link marker is a circle holding an inner span whose
   transform carries the hotspot's `rotation` (Marzipano owns the marker's own
   transform, hence the inner element). An info marker holds the `i` and its text
@@ -110,6 +114,29 @@ selected, which was correct but never idle.
 `pointerdown` and `wheel` at the popup so its fields own their gestures; markers
 stop their own `pointerdown`; what is left — a tap on the empty pano — deselects,
 as does Escape.
+
+### Scene navigation
+
+Marzipano calls a room a scene, and so does the tour data; the nav uses that
+name. A rail down the left of the stage lists every scene, top to bottom, each
+as a square of the scene's starting view with its name beneath it. It is a
+sibling of `#pano`, not a layer inside it, so a click on a row never reaches
+Marzipano's drag handlers — and DOM order alone is what keeps the chrome, the
+hotspot popup and the edit bar painted over it.
+
+The square is not a render: it is one tile the tour already ships. The level is
+the first without `fallbackOnly` (its index is the `{z}` in a tile URL, so it is
+often 1 rather than 0), and the face is the cube face nearest the camera's
+forward vector for the room's `initialViewParameters` — the same vector
+`RectilinearView` projects from. A tour with no tiles still gets the square,
+empty, and a tile that 404s removes its image rather than leaving a broken box.
+
+Picking a row calls `engine.goToScene(id)`, which is also what a link marker
+does; it clears any selection first, because the editing popup lives in the old
+scene's hotspot container. The engine reports every arrival through
+`onSceneChange`, so the nav marks the current scene whether the tour was walked
+with the nav or with an arrow. Navigation is not an edit: no history step and
+no save.
 
 ## 5. Editing and saving
 

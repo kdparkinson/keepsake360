@@ -66,6 +66,16 @@ the final section is a set of candidates, not commitments.
 - Readable contrast on the landing screen's import button.
 - Focus lands in a new note's field.
 
+## Phase 8 — Scene navigation (done)
+
+- A scene nav down the left of the stage lists every scene, top to bottom.
+- Each row is a square of the scene's starting view — one tile the tour already
+  ships, at the smallest level, for the cube face the scene opens looking at —
+  with the scene's name beneath it.
+- Picking a row walks into that scene; the scene on screen is marked whether it
+  was reached from the nav or by a link arrow.
+- The nav is read-only: scenes are still named and ordered by the tour itself.
+
 ## Next — candidates
 
 Roughly in the order they would pay off:

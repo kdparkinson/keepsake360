@@ -13,6 +13,7 @@
 import './index.css';
 import { createHistory } from './history';
 import { createLibraryView } from './library-view';
+import { createSceneNav } from './scene-nav';
 import { assetBaseFor, loadTourData } from './tour/data';
 import {
   createTourEngine,
@@ -32,6 +33,8 @@ const importZipBtn = document.querySelector<HTMLButtonElement>('#import-zip')!;
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
 const library = document.querySelector<HTMLDivElement>('#library')!;
 const libraryList = document.querySelector<HTMLUListElement>('#library-list')!;
+const sceneNavSection = document.querySelector<HTMLElement>('#scene-nav')!;
+const sceneNavList = document.querySelector<HTMLUListElement>('#scene-nav-list')!;
 const pano = document.querySelector<HTMLDivElement>('#pano')!;
 const stageStatus = document.querySelector<HTMLParagraphElement>('#stage-status')!;
 const tourName = document.querySelector<HTMLInputElement>('#tour-name')!;
@@ -86,6 +89,11 @@ let openToken = 0;
 const libraryView = createLibraryView(library, libraryList, {
   onOpen: (directory) => void openFromLibrary(directory),
   onDelete: (tour) => void deleteFromLibrary(tour),
+});
+
+// The scene nav only draws rows and reports clicks; walking is the engine's job.
+const sceneNav = createSceneNav(sceneNavSection, sceneNavList, {
+  onSelect: (sceneId) => engine?.goToScene(sceneId),
 });
 
 /** Switch screens. The engine, not this function, owns the camera. */
@@ -371,6 +379,7 @@ function showLanding(message = '', tone: 'info' | 'error' = 'error'): void {
   setSaveNotice('');
   applyTourName('');
   renderSelection(null);
+  sceneNav.clear();
   resetHistory();
   openTour = null;
   tourData = null;
@@ -418,10 +427,18 @@ async function showTour(tour: LoadedTour): Promise<void> {
   resetHistory();
   pushHistory('open');
 
-  engine = createTourEngine(pano, data, assetBaseFor(tour.assets), {
+  const assetBase = assetBaseFor(tour.assets);
+
+  // Draw the scene nav before the engine mounts: mounting walks into the first
+  // scene, and that reports the scene back to the nav, which is already
+  // listening.
+  sceneNav.render(data.scenes, assetBase);
+
+  engine = createTourEngine(pano, data, assetBase, {
     mode: 'view',
     editor: editorPopover,
     onSelectionChange: renderSelection,
+    onSceneChange: (sceneId) => sceneNav.setActive(sceneId),
     onEdit: handleEdit,
   });
 
