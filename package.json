@@ -2,7 +2,7 @@
   "name": "keepsake360",
   "version": "1.0.2",
   "private": true,
-  "description": "My Electron application description",
+  "description": "A desktop app for keeping 360° tours of homes: import, view and edit Marzipano tours in place.",
   "keywords": [],
   "license": "MIT",
   "author": "kparkinson",
