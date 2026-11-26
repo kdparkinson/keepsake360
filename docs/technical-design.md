@@ -119,10 +119,11 @@ as does Escape.
 
 Marzipano calls a room a scene, and so does the tour data; the nav uses that
 name. A rail down the left of the stage lists every scene, top to bottom, each
-as a square of the scene's starting view with its name beneath it. It is a
-sibling of `#pano`, not a layer inside it, so a click on a row never reaches
-Marzipano's drag handlers — and DOM order alone is what keeps the chrome, the
-hotspot popup and the edit bar painted over it.
+as a square of the scene's starting view with its name beneath it. The stage
+reserves a gutter for it (`--scene-nav-space`): the pano starts where the rail
+ends, so a click on a row never reaches Marzipano's drag handlers and a link
+arrow can never sit under the rail. The chrome, the hotspot popup and the edit
+bar stay clear of it too — the rail's top and bottom margins make room.
 
 The square is not a render: it is one tile the tour already ships. The level is
 the first without `fallbackOnly` (its index is the `{z}` in a tile URL, so it is
@@ -131,12 +132,39 @@ forward vector for the room's `initialViewParameters` — the same vector
 `RectilinearView` projects from. A tour with no tiles still gets the square,
 empty, and a tile that 404s removes its image rather than leaving a broken box.
 
-Picking a row calls `engine.goToScene(id)`, which is also what a link marker
+Picking a square calls `engine.goToScene(id)`, which is also what a link marker
 does; it clears any selection first, because the editing popup lives in the old
 scene's hotspot container. The engine reports every arrival through
 `onSceneChange`, so the nav marks the current scene whether the tour was walked
 with the nav or with an arrow. Navigation is not an edit: no history step and
 no save.
+
+The name beneath each square is a field, not a label: it reads as text until it
+is hovered or focused, the same way the tour's name does in the chrome. It is a
+`textarea` sized to its content so an export's long panorama name wraps and
+stays readable rather than being elided in a 128 px column. Typing
+calls `engine.setSceneName(id, name)`, which writes `scenes[].name` and reports
+`onEdit('scene-name:<id>')` — so a rename is one undo step per scene and is
+autosaved like any other edit, and a link marker's `Go to …` label follows it.
+Only `data.js` changes: the export's own `index.html` fills its scene list from
+`APP_DATA` at runtime, so the browser viewer picks the new name up with no
+rewrite. Undo re-renders the nav from the restored document and re-applies the
+active mark, because the fields hold the names.
+
+A row can also be dragged into a new place. The gesture belongs to the row:
+`pointerdown` records its index, movement past 4 px lifts it, and the row is
+moved through its siblings as the pointer travels, so the list is already in the
+new order on release. The pointer is captured only once a drag has started — a
+plain click is never captured, so the square still reaches its own click. Nothing
+inside a row may begin a browser drag of its own (the thumbnail image is
+`draggable = false` and `pointer-events: none`), because that would fire
+`pointercancel` and end the reorder instead of moving the row.
+
+A drop reports `(from, to)`; the shell splices `scenes`, redraws the rail and
+records an edit. The order in `data.js` is the order the exported viewer lists
+its rooms and the room it opens on, so the drop is undoable and saved like any
+other change. The click that ends a drag is swallowed so a reorder never also
+walks into a scene; a keyboard activation is unaffected.
 
 ## 5. Editing and saving
 
@@ -155,10 +183,18 @@ untouched either way.
 ## 6. The window
 
 `frame: true`. The native frame is what gives window dragging, window buttons
-and — on Windows — the application menu, which holds **Import ZIP…** and **Show
-Tour Folder**. The window opens at 1280×800 on `#111` with `show: false` until
+and — on Windows — the application menu, which holds **Import ZIP…**, **Show
+Tour Folder** and **Choose Tour Folder…**. The window opens at 1280×800 on `#111` with `show: false` until
 `ready-to-show`, to avoid a white flash. DevTools open only against the dev
 server.
+
+The start screen states where tours are kept, with **Change…** beside the import
+button; that and the menu item open the same picker. A tour is an ordinary
+folder, so the library can sit anywhere the user can write. The choice lives in
+`electron-store` and the main process owns it, like every other path: the
+renderer only reads the folder for display. Changing it is refused while a tour
+is open, because that tour's folder is what a save writes into, and it offers to
+bring the existing tours along so the library does not look emptied.
 
 ## 7. Failure behaviour
 

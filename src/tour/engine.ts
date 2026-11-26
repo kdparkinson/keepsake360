@@ -72,6 +72,8 @@ export interface TourEngine {
   clearSelection(): void;
   /** Rename the tour — the `name` the archive carries and the library shows. */
   setTourName(name: string): void;
+  /** Rename one scene — the name the nav and the exported viewer both show. */
+  setSceneName(sceneId: string, name: string): void;
   /**
    * Replace the whole document — undo/redo — and redraw the markers without
    * touching the camera: scenes and views are not rebuilt, only hotspots.
@@ -634,6 +636,31 @@ export function createTourEngine(
     options.onEdit?.('name');
   }
 
+  /**
+   * Rename a scene.
+   *
+   * Only the document changes: a tour's own `index.html` fills its scene list
+   * from `APP_DATA` at runtime, so the name reaches the exported viewer through
+   * `data.js` alone. A link marker's label carries the name of the room it
+   * points at, so those follow the rename.
+   */
+  function setSceneName(sceneId: string, name: string): void {
+    const sceneData = sceneDataFor(sceneId);
+    if (!sceneData || sceneData.name === name) return;
+
+    sceneData.name = name;
+
+    for (const marker of markers) {
+      if (marker.selection.kind !== 'link') continue;
+      if ((marker.hotspot as TourLinkHotspot).target !== sceneId) continue;
+      marker.selection.label = `Go to ${name}`;
+    }
+
+    // One label per scene, so a burst of typing is one undo step and two
+    // scenes renamed in turn stay two.
+    options.onEdit?.(`scene-name:${sceneId}`);
+  }
+
   function removeSelected(): void {
     if (!selected) return;
 
@@ -733,6 +760,7 @@ export function createTourEngine(
     goToScene,
     clearSelection,
     setTourName,
+    setSceneName,
     setData,
     destroy,
   };

@@ -1,17 +1,39 @@
 import { app } from 'electron';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+} from 'node:fs';
 import path from 'node:path';
 import { extractZipTo, findTourDirectory, findTourRoot } from './file-manager';
+import { getLibraryPath } from './store';
 
 /**
- * The tour library: one folder per imported tour, inside the user's Documents.
+ * The tour library: one folder per imported tour.
  *
- * Tours live here rather than in a temp directory because edits are written
- * back into the tour's own `data.js`. The OS reaps temp directories, which
- * would take the edits with them, and the tour would silently revert.
+ * Tours live in a library rather than in a temp directory because edits are
+ * written back into the tour's own `data.js`. The OS reaps temp directories,
+ * which would take the edits with them, and the tour would silently revert.
+ */
+
+/** Where tours are kept until the user picks somewhere else: Documents. */
+function defaultLibraryRoot(): string {
+  return path.join(app.getPath('documents'), 'keepsake360');
+}
+
+/**
+ * The folder new tours are imported into: wherever the user put the library,
+ * or the default inside Documents.
+ *
+ * A tour is an ordinary folder of files, so this can be anywhere the user can
+ * write — an external disk, a synced folder, a photos library.
  */
 export function libraryRoot(): string {
-  return path.join(app.getPath('documents'), 'keepsake360');
+  return getLibraryPath() ?? defaultLibraryRoot();
 }
 
 /** A folder name under `root` that is not taken yet (`home`, `home-2`, …). */
@@ -62,6 +84,62 @@ export function importZipToLibrary(zipPath: string): string | null {
   }
 
   return tourDir;
+}
+
+/** Move a folder, copying first when the two roots are on different disks. */
+function moveFolder(from: string, to: string): void {
+  try {
+    renameSync(from, to);
+    return;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EXDEV') throw error;
+  }
+
+  try {
+    cpSync(from, to, { recursive: true });
+  } catch (error) {
+    // A half-copied tour would list as a broken entry, so a failed attempt
+    // leaves nothing behind; the source is untouched either way.
+    rmSync(to, { recursive: true, force: true });
+    throw error;
+  }
+
+  rmSync(from, { recursive: true, force: true });
+}
+
+/**
+ * Bring the tours in `fromRoot` over to `toRoot`.
+ *
+ * Changing where tours are kept should not make them disappear from the
+ * library, so the folders come along. Each keeps its name unless the new root
+ * already holds one, and a folder that cannot be moved is left where it is
+ * rather than half-copied.
+ *
+ * Returns how many tours arrived.
+ */
+export function moveToursTo(fromRoot: string, toRoot: string): number {
+  if (!existsSync(fromRoot)) return 0;
+
+  mkdirSync(toRoot, { recursive: true });
+
+  let moved = 0;
+
+  for (const entry of readdirSync(fromRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+
+    const source = path.join(fromRoot, entry.name);
+    // Only the library's own folders; anything else is left alone.
+    if (!findTourDirectory(source)) continue;
+
+    try {
+      moveFolder(source, freeFolder(toRoot, entry.name));
+      moved += 1;
+    } catch {
+      // The tour is still whole, and the old folder still holds it.
+    }
+  }
+
+  return moved;
 }
 
 /**

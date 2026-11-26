@@ -42,8 +42,13 @@ readable years later, in an app that needs no account and no network.
   `tiles/`, at the top level or inside one wrapper folder). Folders are not
   imported: the archive is the format the app writes and reads back.
 - An imported tour is copied into the library at
-  `~/Documents/keepsake360/<slug>/`, where later edits are written into its own
-  `data.js`. (An archive name that is already taken gets `-2`, `-3`, …)
+  `~/Documents/keepsake360/<slug>/` unless the user has chosen another folder,
+  where later edits are written into its own `data.js`. (An archive name that is
+  already taken gets `-2`, `-3`, …)
+- The library folder is the user's choice: the start screen says where tours are
+  kept and offers to change it, and the app menu does the same. Changing it can
+  bring the tours already there, so the library never looks emptied; it is
+  refused while a tour is open.
 - The start screen lists the library: each tour's own name, with its unique
   folder beneath it, an open action and a delete action.
 - The last opened tour is remembered and reopened on launch. If it has
@@ -76,8 +81,11 @@ readable years later, in an app that needs no account and no network.
 - Edits are saved as they are made, into the tour's own `data.js`; there is no
   Save button and no second copy.
 - Undo and redo cover everything in the document — notes, links, arrows,
-  positions, deletions and the tour's name — one gesture at a time.
+  positions, deletions, the tour's name, and the names and order of the rooms —
+  one gesture at a time.
 - A tour's name is editable in the chrome and is what the library lists.
+- The scene nav is editable too: a scene's name is a field, and dragging a row
+  moves that room in the tour's order.
 
 ### 4.4 Leaving, exporting, deleting
 
@@ -104,8 +112,8 @@ readable years later, in an app that needs no account and no network.
 
 ## 6. Out of scope for now
 
-- Managing rooms themselves (adding, renaming, reordering or deleting scenes,
-  which also means rewriting the tour's own `index.html`).
+- Adding or deleting rooms (renaming and reordering are in the scene nav), which
+  also means keeping the tour's own `index.html` in step with `data.js`.
 - A single-file container with a stable tour id to stop a re-import creating a
   duplicate entry.
 - Cloud syncing, accounts, and the mobile companion app.

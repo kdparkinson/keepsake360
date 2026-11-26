@@ -22,6 +22,19 @@ export interface TourSummary extends LoadedTour {
   folder: string;
 }
 
+/** Where tours are kept, as the landing screen shows it. */
+export interface LibraryFolder {
+  /** Absolute path to the folder new tours are imported into. */
+  folder: string;
+  /** True while it is still the default inside Documents. */
+  isDefault: boolean;
+}
+
+/** The outcome of picking a new library folder. */
+export type LibraryFolderResult =
+  | { ok: true; library: LibraryFolder; moved: number }
+  | { ok: false; error: string };
+
 export type TourImportResult = { ok: true; tour: LoadedTour } | { ok: false; error: string };
 
 export type SaveResult = { ok: true } | { ok: false; error: string };

@@ -1,21 +1,28 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from 'electron';
 import AdmZip from 'adm-zip';
 import path from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
 import type {
   DeleteResult,
   ExportResult,
+  LibraryFolder,
+  LibraryFolderResult,
   LoadedTour,
   SaveResult,
   TourImportResult,
   TourSummary,
 } from './types';
 import type { TourAppData } from './tour/types';
-import { forgetTour, getLastTour, rememberTour } from './store';
+import { forgetTour, getLastTour, getLibraryPath, rememberTour, setLibraryPath } from './store';
 import { findTourDirectory, findTourRoot } from './file-manager';
-import { importZipToLibrary, libraryRoot, listTours as listLibraryTours } from './library';
+import {
+  importZipToLibrary,
+  libraryRoot,
+  listTours as listLibraryTours,
+  moveToursTo,
+} from './library';
 import { writeTourData } from './tour-file';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -197,6 +204,118 @@ function listTours(): TourSummary[] {
     name: entry.name,
     folder: entry.folder,
   }));
+}
+
+/** Where tours are kept, as the landing screen shows it. */
+function libraryFolder(): LibraryFolder {
+  return { folder: libraryRoot(), isDefault: getLibraryPath() === null };
+}
+
+/**
+ * A folder as the filesystem sees it, for deciding whether two are the same.
+ *
+ * Resolved strings are not enough: a symlink, or a Windows path differing only
+ * in case, would look like a different folder — and moving a library into
+ * itself would duplicate every tour.
+ */
+function folderIdentity(folder: string): string {
+  let identity = path.resolve(folder);
+
+  try {
+    identity = realpathSync(identity);
+  } catch {
+    // Not there yet: the resolved path is all there is to compare.
+  }
+
+  return process.platform === 'win32' ? identity.toLowerCase() : identity;
+}
+
+/**
+ * Ask where tours should be kept, and move the library there.
+ *
+ * A tour is a folder of ordinary files, so the library can live anywhere the
+ * user can write. The tours already in it can come along, because a library
+ * that suddenly looks empty would read as lost work.
+ *
+ * Refused while a tour is open: its folder is what a save writes into, and the
+ * app has to know where that is.
+ */
+async function chooseLibraryFolder(): Promise<LibraryFolderResult> {
+  if (!mainWindow) {
+    return { ok: false, error: 'The application window is not ready yet.' };
+  }
+
+  if (currentTourDir) {
+    return { ok: false, error: 'Exit the tour before changing where tours are kept.' };
+  }
+
+  const previous = path.resolve(libraryRoot());
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose where tours are kept',
+    buttonLabel: 'Use This Folder',
+    defaultPath: previous,
+    properties: ['openDirectory', 'createDirectory'],
+    message: 'New tours are imported into this folder.',
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { ok: false, error: 'cancelled' };
+  }
+
+  const chosen = path.resolve(result.filePaths[0]);
+  const previousId = folderIdentity(previous);
+  const chosenId = folderIdentity(chosen);
+
+  if (chosenId === previousId) {
+    return { ok: true, library: libraryFolder(), moved: 0 };
+  }
+
+  // One inside the other would have the move copy the library into itself.
+  if (chosenId.startsWith(previousId + path.sep) || previousId.startsWith(chosenId + path.sep)) {
+    return { ok: false, error: 'Choose a folder that is not inside your current tour library.' };
+  }
+
+  const count = listLibraryTours().length;
+  let moved = 0;
+
+  if (count > 0) {
+    const answer = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      buttons: ['Move them', 'Leave them', 'Cancel'],
+      defaultId: 0,
+      cancelId: 2,
+      message: `Move your ${count} tour${count === 1 ? '' : 's'} to the new folder?`,
+      detail:
+        `Tours are kept in ${previous}.\n` +
+        `“Leave them” starts the library at ${chosen} and leaves the old folder as it is.`,
+    });
+
+    if (answer.response === 2) return { ok: false, error: 'cancelled' };
+
+    if (answer.response === 0) {
+      moved = moveToursTo(previous, chosen);
+
+      if (moved === 0) {
+        return {
+          ok: false,
+          error: 'Your tours could not be moved. They are still in the old folder.',
+        };
+      }
+    }
+  }
+
+  try {
+    setLibraryPath(chosen);
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+
+  // Import puts tours here from now on; a stale list on the landing screen
+  // would otherwise show the old folder's tours until the next refresh.
+  mainWindow.webContents.send('library:changed');
+
+  return { ok: true, library: libraryFolder(), moved };
 }
 
 /**
@@ -382,6 +501,15 @@ const buildMenu = () => {
             if (currentTourDir) void shell.openPath(currentTourDir);
           },
         },
+        {
+          label: 'Choose Tour Folder…',
+          click: () => {
+            void chooseLibraryFolder().then((result) => {
+              if (result.ok || result.error === 'cancelled') return;
+              dialog.showErrorBox('Tour folder', result.error);
+            });
+          },
+        },
         { type: 'separator' as const },
         { role: 'quit' as const },
       ],
@@ -401,6 +529,8 @@ app.whenReady().then(() => {
   ipcMain.handle('tour:open', (_event, directory: string) => openLibraryTour(directory));
   ipcMain.handle('tour:export', () => exportOpenTour());
   ipcMain.handle('tour:delete', (_event, directory: string) => deleteLibraryTour(directory));
+  ipcMain.handle('library:folder', () => libraryFolder());
+  ipcMain.handle('library:choose', () => chooseLibraryFolder());
   ipcMain.handle('tour:save', (_event, directory: string, assets: string, data: TourAppData) =>
     saveTour(directory, assets, data),
   );

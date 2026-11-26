@@ -5,6 +5,8 @@ import type { IpcRendererEvent } from 'electron';
 import type {
   DeleteResult,
   ExportResult,
+  LibraryFolder,
+  LibraryFolderResult,
   LoadedTour,
   SaveResult,
   TourImportResult,
@@ -42,6 +44,24 @@ const keepsake = {
    */
   deleteTour: (directory: string): Promise<DeleteResult> =>
     ipcRenderer.invoke('tour:delete', directory),
+
+  /** The folder new tours are imported into, and whether it is the default. */
+  getLibraryFolder: (): Promise<LibraryFolder> => ipcRenderer.invoke('library:folder'),
+
+  /**
+   * Ask where tours should be kept. The main process shows the folder picker,
+   * offers to bring the existing tours along, and refuses while a tour is open.
+   */
+  chooseLibraryFolder: (): Promise<LibraryFolderResult> => ipcRenderer.invoke('library:choose'),
+
+  /** Be told when the library folder changes (from the native menu, say). */
+  onLibraryChange: (callback: () => void): (() => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('library:changed', listener);
+    return () => {
+      ipcRenderer.off('library:changed', listener);
+    };
+  },
 
   /** Forget the open tour, so the next launch starts on the landing page. */
   closeTour: (): Promise<void> => ipcRenderer.invoke('tour:close'),

@@ -3,6 +3,8 @@
 import type {
   DeleteResult,
   ExportResult,
+  LibraryFolder,
+  LibraryFolderResult,
   LoadedTour,
   SaveResult,
   TourImportResult,
@@ -20,6 +22,9 @@ declare global {
       openTour: (directory: string) => Promise<TourImportResult>;
       exportTour: () => Promise<ExportResult>;
       deleteTour: (directory: string) => Promise<DeleteResult>;
+      getLibraryFolder: () => Promise<LibraryFolder>;
+      chooseLibraryFolder: () => Promise<LibraryFolderResult>;
+      onLibraryChange: (callback: () => void) => () => void;
       closeTour: () => Promise<void>;
       saveTour: (directory: string, assets: string, data: TourAppData) => Promise<SaveResult>;
       onTour: (callback: (tour: LoadedTour) => void) => () => void;

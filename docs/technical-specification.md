@@ -52,7 +52,16 @@ expect.
 
 ## 3. Storage
 
-- **Library root:** `~/Documents/keepsake360` (`app.getPath('documents')`).
+- **Library root:** `~/Documents/keepsake360` (`app.getPath('documents')`) by
+  default. The user can pick another folder from the start screen or the menu;
+  the choice is kept in `electron-store` as `libraryPath`, and `libraryRoot()`
+  is the only reader of it.
+- **Moving the library.** Choosing a new folder offers to bring the tours along:
+  each top-level tour folder is renamed into the new root (copied and deleted
+  when the destination is on another disk), with `-2`, `-3` suffixes on
+  collision, and a folder that cannot be moved is left where it is. The picker
+  is refused while a tour is open, and refuses a folder nested inside the
+  current one.
 - One folder per tour, named from the archive (`my-house.zip` →
   `my-house/`), with `-2`, `-3` suffixes on collision.
 - **Why Documents and not temp.** Edits are written back into the tour's own
@@ -95,11 +104,17 @@ and these channels:
 | `tour:export`    | Zip the open tour to a file the user picks                     |
 | `tour:delete`    | Delete a library tour, after a native confirmation             |
 | `tour:close`     | Forget the open tour, so the next launch starts at the library |
+| `library:folder` | Where tours are kept, and whether that is still the default    |
+| `library:choose` | Pick that folder, optionally moving the tours already there    |
 
-Typed results (`SaveResult`, `ExportResult`, `DeleteResult`, `TourImportResult`)
-in `src/types.ts` keep both sides honest. A dismissed dialog is reported as
-`{ ok: false, error: 'cancelled' }`, which the UI treats as "nothing happened"
-rather than as a failure.
+One channel runs the other way: `library:changed` is pushed to the window when
+the folder changes — from the menu, say — so the landing screen redraws without
+being asked.
+
+Typed results (`SaveResult`, `ExportResult`, `DeleteResult`, `TourImportResult`,
+`LibraryFolderResult`) in `src/types.ts` keep both sides honest. A dismissed
+dialog is reported as `{ ok: false, error: 'cancelled' }`, which the UI treats as
+"nothing happened" rather than as a failure.
 
 ## 6. Editing pipeline
 

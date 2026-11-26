@@ -22,7 +22,8 @@ the final section is a set of candidates, not commitments.
 
 ## Phase 3 — The library (done)
 
-- Tours live in `~/Documents/keepsake360/<slug>/`.
+- Tours live in `~/Documents/keepsake360/<slug>/` by default; the start screen
+  and the menu can move the library, and bring the tours with it.
 - The start screen lists them: the tour's own name, its unique folder, open and
   delete.
 - Delete asks for confirmation, removes the whole folder, and refuses the tour
@@ -72,17 +73,21 @@ the final section is a set of candidates, not commitments.
 - Each row is a square of the scene's starting view — one tile the tour already
   ships, at the smallest level, for the cube face the scene opens looking at —
   with the scene's name beneath it.
-- Picking a row walks into that scene; the scene on screen is marked whether it
-  was reached from the nav or by a link arrow.
-- The nav is read-only: scenes are still named and ordered by the tour itself.
+- Picking a square walks into that scene; the scene on screen is marked whether
+  it was reached from the nav or by a link arrow.
+- A scene's name is editable in the nav, saved into `data.js` and undoable like
+  any other edit.
+- Dragging a row moves that room in the tour's order: the scene list is spliced
+  and the rail redrawn, undoable and saved. Which scenes exist is still the
+  tour's business.
 
 ## Next — candidates
 
 Roughly in the order they would pay off:
 
-1. **Room management.** Rename, reorder and delete scenes. This is bigger than
-   it looks: the tour's own `index.html` carries a scene list, so a scene edit
-   has to keep that in step with `data.js`.
+1. **Adding and deleting rooms.** Renaming and reordering are in the nav; adding
+   or deleting a scene is bigger than it looks: the tour's own `index.html`
+   carries a scene list, so a scene edit has to keep that in step with `data.js`.
 2. **A stable tour identity.** A `.zip` re-imported becomes a second library
    entry. A single-file container (`.ks360`) with a tour id would let an import
    recognise a tour it already has. Best treated as an export container, not the

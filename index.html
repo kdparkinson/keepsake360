@@ -15,6 +15,13 @@
         <div class="actions">
           <button id="import-zip" class="import-btn" type="button">Import a ZIP File</button>
         </div>
+        <!-- Where the next import is put. A tour is an ordinary folder, so the
+             library can be kept anywhere; this is the way to move it. -->
+        <p class="library-location">
+          <span>Tours are kept in</span>
+          <span id="library-path" class="library-path"></span>
+          <button id="choose-library" class="library-change" type="button">Change…</button>
+        </p>
         <p id="status" class="status" role="status" aria-live="polite"></p>
         <!-- Exiting a tour lands here, so the library has to be reachable from
              it — otherwise the only way back into a tour is re-importing it. -->

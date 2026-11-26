@@ -8,9 +8,12 @@ import Store from 'electron-store';
 const store = new Store<{
   /** Absolute path to the folder containing the last tour's index.html, or null. */
   lastTour: string | null;
+  /** Where the tour library lives, or null to use the default in Documents. */
+  libraryPath: string | null;
 }>({
   defaults: {
     lastTour: null,
+    libraryPath: null,
   },
 });
 
@@ -27,4 +30,14 @@ export function rememberTour(indexHtmlPath: string): void {
 /** Forget the remembered tour (e.g. after it no longer exists on disk). */
 export function forgetTour(): void {
   store.set('lastTour', null);
+}
+
+/** The folder the user chose for the tour library, or null for the default. */
+export function getLibraryPath(): string | null {
+  return store.get('libraryPath', null);
+}
+
+/** Remember where the tour library lives, so imports keep landing there. */
+export function setLibraryPath(folder: string | null): void {
+  store.set('libraryPath', folder);
 }

@@ -13,8 +13,10 @@ Built with Electron, Vite and [Marzipano](https://www.marzipano.net/).
 - **Shows the tour** in a quiet window: drag to look around, click an arrow to
   walk into the next room, hover a note to read it.
 - **Walks scene to scene.** A scene nav down the left of the stage lists every
-  room as a square of its starting view; picking one goes there, and the scene
-  on screen is marked either way.
+  room as a square of its starting view, with its name beneath it — editable
+  there, saved like any other edit. Picking one goes there, and the scene on
+  screen is marked either way. Dragging a row moves that room in the tour's
+  order.
 - **Edits in place.** A View/Edit switch that never moves the camera; notes and
   links placed where you are looking, dragged into position, deleted from a
   popup beside the marker; a link's arrow set on a dial.
@@ -48,12 +50,17 @@ npm run make        # build the installers with Electron Forge
 
 ## Where tours are stored
 
-Everything lives in the Documents folder, one directory per tour:
+By default everything lives in the Documents folder, one directory per tour:
 
 ```
 ~/Documents/keepsake360/<tour>/          # macOS and Linux
 %USERPROFILE%\Documents\keepsake360\     # Windows
 ```
+
+That is only the default. **Choose Tour Folder…** in the app menu, or
+**Change…** beside the start screen's import button, puts the library wherever
+you can write — an external disk, a synced folder. Existing tours can be
+brought along when the folder changes, so the library does not look emptied.
 
 - The folder is named after the archive you imported (`my-house.zip` →
   `my-house/`), with `-2`, `-3` added if that name is taken.

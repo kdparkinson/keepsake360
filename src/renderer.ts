@@ -33,6 +33,8 @@ const importZipBtn = document.querySelector<HTMLButtonElement>('#import-zip')!;
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
 const library = document.querySelector<HTMLDivElement>('#library')!;
 const libraryList = document.querySelector<HTMLUListElement>('#library-list')!;
+const libraryPath = document.querySelector<HTMLSpanElement>('#library-path')!;
+const changeLibraryBtn = document.querySelector<HTMLButtonElement>('#choose-library')!;
 const sceneNavSection = document.querySelector<HTMLElement>('#scene-nav')!;
 const sceneNavList = document.querySelector<HTMLUListElement>('#scene-nav-list')!;
 const pano = document.querySelector<HTMLDivElement>('#pano')!;
@@ -66,6 +68,9 @@ let engine: TourEngine | null = null;
 let openTour: LoadedTour | null = null;
 let tourData: TourAppData | null = null;
 
+/** The scene on screen, as the engine last reported it. */
+let activeSceneId: string | null = null;
+
 /** True while an edit has not reached disk yet. */
 let unsaved = false;
 
@@ -91,10 +96,41 @@ const libraryView = createLibraryView(library, libraryList, {
   onDelete: (tour) => void deleteFromLibrary(tour),
 });
 
-// The scene nav only draws rows and reports clicks; walking is the engine's job.
+// The scene nav only draws rows and reports clicks and renames; walking the
+// tour and changing its document are the engine's job.
 const sceneNav = createSceneNav(sceneNavSection, sceneNavList, {
   onSelect: (sceneId) => engine?.goToScene(sceneId),
+  onRename: (sceneId, name) => engine?.setSceneName(sceneId, name),
+  onReorder: (fromIndex, toIndex) => moveScene(fromIndex, toIndex),
 });
+
+/**
+ * Move a scene to another place in the document.
+ *
+ * The rail's order is the order of `data.js`, which is also the order the
+ * exported viewer lists its rooms — and the first of them is the room a tour
+ * opens on — so a drop is an edit like any other: undoable and saved.
+ */
+function moveScene(fromIndex: number, toIndex: number): void {
+  if (!tourData || !openTour) return;
+
+  const scenes = tourData.scenes;
+  if (fromIndex < 0 || fromIndex >= scenes.length) return;
+  if (toIndex < 0 || toIndex >= scenes.length) return;
+  if (fromIndex === toIndex) return;
+
+  const [moved] = scenes.splice(fromIndex, 1);
+  scenes.splice(toIndex, 0, moved);
+
+  // The rail is the thing being reordered, so redraw it. The engine's scenes
+  // are keyed by id, so its camera and tiles are untouched.
+  sceneNav.render(scenes, assetBaseFor(openTour.assets));
+  sceneNav.setActive(activeSceneId);
+
+  // Each drop is a whole gesture, so the label names this one and cannot fold
+  // it into a drop made moments before.
+  handleEdit(`scene-order:${fromIndex}-${toIndex}`);
+}
 
 /** Switch screens. The engine, not this function, owns the camera. */
 function setState(next: AppState): void {
@@ -267,6 +303,13 @@ function restoreHistory(snapshot: string): void {
   engine?.setData(tourData);
   applyTourName(tourData.name ?? '');
 
+  // Scene names are fields in the nav, so undo has to put them back and keep
+  // the highlight on the scene that is still on screen.
+  if (openTour) {
+    sceneNav.render(tourData.scenes, assetBaseFor(openTour.assets));
+    sceneNav.setActive(activeSceneId);
+  }
+
   markDirty();
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => void save(), 400);
@@ -349,6 +392,44 @@ async function refreshLibrary(): Promise<void> {
   }
 }
 
+/** Show where the next import will be put, and whether that is the default. */
+async function refreshLibraryFolder(): Promise<void> {
+  try {
+    const { folder, isDefault } = await window.keepsake.getLibraryFolder();
+    libraryPath.textContent = folder;
+    libraryPath.title = isDefault ? `${folder} (the default)` : folder;
+  } catch {
+    libraryPath.textContent = '';
+  }
+}
+
+/**
+ * Let the user put the library somewhere else.
+ *
+ * The main process shows the picker, offers to bring the tours already in the
+ * library along, and refuses while a tour is open — its folder is what a save
+ * writes into.
+ */
+async function chooseLibraryFolder(): Promise<void> {
+  const result = await window.keepsake.chooseLibraryFolder();
+
+  if (!result.ok) {
+    if (result.error !== 'cancelled') setStatus(result.error);
+    return;
+  }
+
+  await refreshLibraryFolder();
+  await refreshLibrary();
+
+  const { folder } = result.library;
+  setStatus(
+    result.moved > 0
+      ? `Moved ${result.moved} tour${result.moved === 1 ? '' : 's'} to ${folder}.`
+      : `Tours are now kept in ${folder}.`,
+    'info',
+  );
+}
+
 async function openFromLibrary(directory: string): Promise<void> {
   const result = await window.keepsake.openTour(directory);
   if (!result.ok && result.error !== 'cancelled') setStatus(result.error);
@@ -380,11 +461,13 @@ function showLanding(message = '', tone: 'info' | 'error' = 'error'): void {
   applyTourName('');
   renderSelection(null);
   sceneNav.clear();
+  activeSceneId = null;
   resetHistory();
   openTour = null;
   tourData = null;
   unsaved = false;
   void refreshLibrary();
+  void refreshLibraryFolder();
 }
 
 /** Open a tour in view mode. Replaces whichever tour is already on screen. */
@@ -432,13 +515,17 @@ async function showTour(tour: LoadedTour): Promise<void> {
   // Draw the scene nav before the engine mounts: mounting walks into the first
   // scene, and that reports the scene back to the nav, which is already
   // listening.
+  activeSceneId = null;
   sceneNav.render(data.scenes, assetBase);
 
   engine = createTourEngine(pano, data, assetBase, {
     mode: 'view',
     editor: editorPopover,
     onSelectionChange: renderSelection,
-    onSceneChange: (sceneId) => sceneNav.setActive(sceneId),
+    onSceneChange: (sceneId) => {
+      activeSceneId = sceneId;
+      sceneNav.setActive(sceneId);
+    },
     onEdit: handleEdit,
   });
 
@@ -507,6 +594,7 @@ async function exportAndLeave(): Promise<void> {
 }
 
 importZipBtn.addEventListener('click', () => void importZip());
+changeLibraryBtn.addEventListener('click', () => void chooseLibraryFolder());
 
 modeViewBtn.addEventListener('click', () => setMode('view'));
 modeEditBtn.addEventListener('click', () => setMode('edit'));
@@ -624,6 +712,12 @@ document.addEventListener('keydown', (event) => {
 
 // A tour imported from the menu arrives here rather than as a page load.
 window.keepsake.onTour((tour) => void showTour(tour));
+
+// The native menu can move the library too, so the landing screen follows it.
+window.keepsake.onLibraryChange(() => {
+  void refreshLibraryFolder();
+  void refreshLibrary();
+});
 
 // Subscribe first, then ask: a tour can be waiting from the last session.
 const current = await window.keepsake.getTour();

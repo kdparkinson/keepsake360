@@ -96,6 +96,48 @@ h1 {
   color: #a8d5a8;
 }
 
+/* Where the next import goes. It sits under the import button because that is
+   the action the folder decides, and it is the only place the library can be
+   moved from without the native menu. */
+.library-location {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: -0.35rem 0 0;
+  font-size: 0.78rem;
+  color: #7f858c;
+}
+
+.library-path {
+  max-width: 24rem;
+  overflow: hidden;
+  color: #9aa0a6;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* The path is long and only ever read, so it is a label rather than an
+     input: no caret to land in by accident. */
+  user-select: text;
+}
+
+.library-change {
+  padding: 0.1rem 0.45rem;
+  font: inherit;
+  font-size: 0.75rem;
+  color: #cfd3d8;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.library-change:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
 /* The tour library, so exiting a tour is not a dead end. */
 
 .library {
@@ -190,16 +232,26 @@ h1 {
 #stage {
   position: absolute;
   inset: 0;
+  /* The scene nav's gutter. The pano starts where the rail ends, so a link
+     arrow can never sit under the rail and no drag starts behind it.
+     The rail's own width is fixed by its 128px rows plus padding. */
+  --scene-nav-space: 172px;
 }
 
 .pano {
-  width: 100%;
+  width: calc(100% - var(--scene-nav-space));
   height: 100%;
+  margin-left: var(--scene-nav-space);
+  /* Marzipano positions markers by transform and lets them paint outside its
+     container; clip them so a marker at the pano's edge can never land on
+     the rail. */
+  overflow: hidden;
 }
 
 .stage-status {
   position: absolute;
   inset: 0;
+  left: var(--scene-nav-space);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -256,33 +308,51 @@ h1 {
 /* A row keeps its height when the list overflows, so the nav scrolls rather
    than squashing the snapshots. */
 .scene-nav-row {
-  flex: none;
-}
-
-.scene-nav-item {
   display: flex;
   width: 128px;
+  flex: none;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.35rem;
-  font: inherit;
-  font-size: 0.72rem;
-  line-height: 1.3;
-  color: #cfd3d8;
-  text-align: center;
-  background: none;
+  gap: 0.3rem;
+  padding: 0.3rem 0.3rem 0.35rem;
   border: 1px solid transparent;
   border-radius: 11px;
-  cursor: pointer;
+  cursor: grab;
 }
 
-.scene-nav-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+/* A row being dragged through its neighbours: it is the same row, on its way
+   to the place the drop leaves it in. */
+.scene-nav-row.dragging {
+  outline: 1px dashed rgba(217, 164, 65, 0.6);
+  outline-offset: 1px;
+  opacity: 0.8;
+  cursor: grabbing;
+}
+
+.scene-nav-row.dragging .scene-nav-item {
+  cursor: grabbing;
+}
+
+/* The square is the way into the scene; the name below it is a field. */
+.scene-nav-item {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 9px;
+  /* A press here can become a drag, so it offers that rather than a click. */
+  cursor: grab;
+}
+
+.scene-nav-item:hover .scene-nav-thumb {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .scene-nav-item:focus-visible {
-  border-color: #d9a441;
   outline: none;
+  box-shadow: 0 0 0 2px #d9a441;
 }
 
 .scene-nav-thumb {
@@ -300,20 +370,68 @@ h1 {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* The picture is decoration: a press belongs to the square around it, so it
+     can start a reorder instead of the browser's image drag. */
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
+/* Reads as the scene's title until it is hovered or focused, like the tour's
+   name in the chrome — a rename should not need a mode. A textarea, not an
+   input, because exports name scenes after their panorama file: the name has
+   to wrap and stay readable rather than being elided to an ellipsis. */
 .scene-nav-name {
   display: block;
+  width: 100%;
+  max-height: 4.5em;
+  padding: 0.15rem 0.2rem;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #cfd3d8;
+  text-align: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  resize: none;
+  field-sizing: content;
+}
+
+.scene-nav-name:focus {
+  overflow-y: auto;
+}
+
+.scene-nav-name:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.scene-nav-name:focus {
+  color: #f2f2f2;
+  background: rgba(12, 12, 12, 0.85);
+  border-color: #d9a441;
+  outline: none;
+}
+
+.scene-nav-name::placeholder {
+  color: #8c9299;
 }
 
 /* The scene on screen, whether it was reached from the nav or by an arrow. */
-.scene-nav-item[aria-current='true'] {
+.scene-nav-item[aria-current='true'] .scene-nav-thumb {
+  box-shadow:
+    inset 0 0 0 2px #d9a441,
+    0 0 0 1px rgba(217, 164, 65, 0.55);
+}
+
+.scene-nav-row:has(.scene-nav-item[aria-current='true']) {
+  background: rgba(217, 164, 65, 0.12);
+  border-color: rgba(217, 164, 65, 0.6);
+}
+
+.scene-nav-row:has(.scene-nav-item[aria-current='true']) .scene-nav-name {
   color: #f4e3bf;
-  background: rgba(217, 164, 65, 0.14);
-  border-color: #d9a441;
 }
 
 /* Mode chrome, laid over the tour without intercepting drags. */
