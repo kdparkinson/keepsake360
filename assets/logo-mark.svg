@@ -1,0 +1,10 @@
+<!-- The keepsake360 mark: a globe drawn as a single line weight, with the far
+     side of each great circle dashed. Traced from the supplied artwork; the
+     geometry (radii, stroke weight, dash rhythm) is measured from it. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 104" fill="none" stroke="#CD8552" stroke-width="3">
+  <circle cx="52" cy="52" r="50.5" />
+  <path d="M2 52a50 16 0 0 0 100 0" />
+  <path d="M102 52a50 16 0 0 0-100 0" stroke-dasharray="4 5.5" />
+  <path d="M52 2a16 50 0 0 0 0 100" />
+  <path d="M52 102a16 50 0 0 1 0-100" stroke-dasharray="4 5.5" />
+</svg>

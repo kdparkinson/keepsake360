@@ -1,0 +1,15 @@
+<!-- Source artwork for the app icon (build/icon.icns, build/icon.ico,
+     build/icon.png). The mark sits on a cream squircle inset like a native
+     macOS icon: macOS draws icons at their own size, so a full-bleed canvas
+     looks oversized next to the system ones. The small icon sizes need a
+     heavier stroke than this file gives, so they are drawn separately. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect x="66" y="66" width="892" height="892" rx="199" fill="#FBE7D9" />
+  <g transform="translate(262.5 262.5) scale(4.798)" fill="none" stroke="#CD8552" stroke-width="3">
+    <circle cx="52" cy="52" r="50.5" />
+    <path d="M2 52a50 16 0 0 0 100 0" />
+    <path d="M102 52a50 16 0 0 0-100 0" stroke-dasharray="4 5.5" />
+    <path d="M52 2a16 50 0 0 0 0 100" />
+    <path d="M52 102a16 50 0 0 1 0-100" stroke-dasharray="4 5.5" />
+  </g>
+</svg>

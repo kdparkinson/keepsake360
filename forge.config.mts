@@ -77,6 +77,10 @@ async function finalizeArtifacts(makeResults: ForgeMakeResult[]): Promise<ForgeM
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    // Packager picks the file up per platform (icon.icns on macOS, icon.ico on
+    // Windows, icon.png on Linux) as long as the extension is left off. Without
+    // this the app ships Electron's own icon.
+    icon: path.resolve('build/icon'),
     // Set explicitly so the app's identity is stable under Gatekeeper, the
     // keychain and any future update feed.
     appBundleId: 'com.kdparkinson.keepsake360',

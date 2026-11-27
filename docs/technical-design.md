@@ -196,6 +196,15 @@ renderer only reads the folder for display. Changing it is refused while a tour
 is open, because that tour's folder is what a save writes into, and it offers to
 bring the existing tours along so the library does not look emptied.
 
+The window wears the brand too. `packagerConfig.icon` points at `build/icon`,
+which Forge resolves per platform (`icon.icns` on macOS, `icon.ico` on Windows,
+`icon.png` on Linux) — without it the app ships Electron's own icon. Both build
+files are drawn from `assets/app-icon.svg`: the orange globe on a cream squircle,
+inset like a native macOS icon since macOS draws icons at their own size. The
+16 and 32 px versions are drawn with a heavier stroke, because a 3-unit line
+vanishes at those sizes. The landing title shows the same globe from
+`assets/logo-mark.svg` at the heading's size.
+
 ## 7. Failure behaviour
 
 - A bad archive: the imported folder is removed again and the user is told no
