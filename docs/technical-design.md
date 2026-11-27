@@ -28,6 +28,13 @@ pointer events, not the scene it is showing. A page load would rebuild the
 viewer and lose the position — the reason the editor was folded into the app
 rather than bolted on as a second page.
 
+View mode is read-only, not merely marker-free. The tour's name, the scene
+names and the scene order are all fields in the chrome, and every one of them
+is a document edit: the name input is `readOnly` and out of the tab order, the
+nav's names are labels, a row cannot be reordered, and the undo/redo shortcuts
+belong to edit mode. A viewer can look around and walk through the tour, and
+nothing they touch changes the file on disk.
+
 ## 3. Module map
 
 ```
@@ -65,6 +72,11 @@ library view draws rows and reports clicks.
 - **Scenes are built once per tour.** Each scene has its own
   `RectilinearView` with the tour's initial parameters and the usual rectilinear
   limits.
+- **There is no zoom.** The viewer is constructed without Marzipano's
+  `scrollZoom` control, so no wheel listener is ever registered, and the touch
+  controls' `pinch` method is disabled after construction. The camera turns and
+  walks between rooms; the field of view stays the one the tour was saved with,
+  in both view and edit mode.
 - **`goToScene(id)`** switches scene and reports the arrival through
   `onSceneChange`, dropping the selection on the way out. Link markers and the
   scene nav both use it, so "where the tour is" has one definition.
@@ -110,10 +122,10 @@ Not a frame loop: the earlier version measured every frame while a hotspot was
 selected, which was correct but never idle.
 
 **Gesture ownership.** The popup sits inside Marzipano's hotspot layer, where a
-`pointerdown` starts a camera drag and a wheel zooms. The shell stops
-`pointerdown` and `wheel` at the popup so its fields own their gestures; markers
-stop their own `pointerdown`; what is left — a tap on the empty pano — deselects,
-as does Escape.
+`pointerdown` would start a camera drag. The shell stops `pointerdown` at the
+popup so its fields own their gestures; markers stop their own `pointerdown`;
+what is left — a tap on the empty pano — deselects, as does Escape. There is no
+wheel gesture to claim, because the viewer has no zoom.
 
 ### Scene navigation
 
@@ -139,8 +151,10 @@ scene's hotspot container. The engine reports every arrival through
 with the nav or with an arrow. Navigation is not an edit: no history step and
 no save.
 
-The name beneath each square is a field, not a label: it reads as text until it
-is hovered or focused, the same way the tour's name does in the chrome. It is a
+In edit mode the name beneath each square is a field, not a label: it reads as
+text until it is hovered or focused, the same way the tour's name does in the
+chrome. In view mode it is a label with `pointer-events: none`, out of the tab
+order and `readOnly`, because a rename is a document edit. It is a
 `textarea` sized to its content so an export's long panorama name wraps and
 stays readable rather than being elided in a 128 px column. Typing
 calls `engine.setSceneName(id, name)`, which writes `scenes[].name` and reports
@@ -151,7 +165,8 @@ Only `data.js` changes: the export's own `index.html` fills its scene list from
 rewrite. Undo re-renders the nav from the restored document and re-applies the
 active mark, because the fields hold the names.
 
-A row can also be dragged into a new place. The gesture belongs to the row:
+In edit mode a row can also be dragged into a new place. The gesture belongs to
+the row:
 `pointerdown` records its index, movement past 4 px lifts it, and the row is
 moved through its siblings as the pointer travels, so the list is already in the
 new order on release. The pointer is captured only once a drag has started — a

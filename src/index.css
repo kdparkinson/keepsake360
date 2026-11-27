@@ -427,6 +427,20 @@ h1 {
   outline: none;
 }
 
+/* In view mode the rail is navigation: a row is not a drag handle, and a
+   name beside a square is a label rather than a field. */
+.scene-nav[data-editable='false'] .scene-nav-row {
+  cursor: default;
+}
+
+.scene-nav[data-editable='false'] .scene-nav-item {
+  cursor: pointer;
+}
+
+.scene-nav[data-editable='false'] .scene-nav-name {
+  pointer-events: none;
+}
+
 .scene-nav-name::placeholder {
   color: #8c9299;
 }
@@ -491,6 +505,12 @@ h1 {
   border-radius: 6px;
   field-sizing: content;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* Renaming is an edit, so in view mode the name is a title rather than a
+   field: no hover box, no caret, nothing to type into. */
+#app[data-state='view'] .tour-name-input {
+  pointer-events: none;
 }
 
 .tour-name-input:hover {

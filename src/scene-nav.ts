@@ -14,6 +14,11 @@ export interface SceneNav {
   render(scenes: TourScene[], assetBase: string): void;
   /** Mark the scene on screen, or clear the mark when no scene is known. */
   setActive(sceneId: string | null): void;
+  /**
+   * Whether the rail is part of the editor. In view mode its names are labels
+   * and its rows only navigate; a rename or a reorder is a document edit.
+   */
+  setEditable(editable: boolean): void;
   /** Empty the rail, so a closed tour leaves no rows behind. */
   clear(): void;
 }
@@ -30,10 +35,11 @@ const DRAG_THRESHOLD_PX = 4;
  * The scene nav beside the stage.
  *
  * Marzipano calls a room a scene, and so does the tour data; the nav shows one
- * square per scene, in the order the document lists them. The square is the way
- * into a scene and the name beneath it is a field, so renaming is done where
- * the name is read. A row can also be dragged to another place in the rail,
- * which is how the tour's order — and so the viewer's — is changed.
+ * square per scene, in the order the document lists them. The square is always
+ * the way into a scene. In edit mode the name beneath it is a field, so
+ * renaming is done where the name is read, and a row can be dragged to another
+ * place in the rail, which is how the tour's order — and so the viewer's — is
+ * changed. In view mode the name is a label and a row only navigates.
  *
  * Like the library list, it draws rows and reports clicks, renames and drops
  * and nothing else: the camera, the open tour and the saving all stay with the
@@ -49,6 +55,19 @@ export function createSceneNav(
    * Cleared as the next gesture starts, in case that click never arrived.
    */
   let dropped = false;
+
+  /** Mirrors the app's mode; the rail starts as part of the viewer. */
+  let editable = false;
+
+  /** Make the rows on the rail agree with `editable`, new or already drawn. */
+  function applyEditable(): void {
+    section.dataset.editable = String(editable);
+
+    for (const name of list.querySelectorAll<HTMLTextAreaElement>('.scene-nav-name')) {
+      name.readOnly = !editable;
+      name.tabIndex = editable ? 0 : -1;
+    }
+  }
 
   /** A row's place in the rail right now, which a drag changes. */
   function indexOf(item: HTMLElement): number {
@@ -88,7 +107,8 @@ export function createSceneNav(
       // for us to swallow.
       dropped = false;
 
-      if (event.button !== 0) return;
+      // Reordering is a document edit, so a view-mode row stays put.
+      if (!editable || event.button !== 0) return;
 
       // The name is a field: dragging in it selects text, it does not move a
       // room.
@@ -198,6 +218,8 @@ export function createSceneNav(
     name.maxLength = 120;
     name.spellcheck = false;
     name.setAttribute('aria-label', 'Scene name');
+    name.readOnly = !editable;
+    name.tabIndex = editable ? 0 : -1;
 
     // The button's label is what the nav reads aloud and what a hover shows, so
     // it follows what is being typed rather than the document it started from.
@@ -228,6 +250,11 @@ export function createSceneNav(
     render(scenes, assetBase) {
       list.replaceChildren(...scenes.map((scene, index) => row(scene, index, assetBase)));
       section.hidden = scenes.length === 0;
+      applyEditable();
+    },
+    setEditable(next) {
+      editable = next;
+      applyEditable();
     },
     setActive(sceneId) {
       for (const button of list.querySelectorAll<HTMLButtonElement>('.scene-nav-item')) {

@@ -143,7 +143,17 @@ export function createTourEngine(
   assetBase: string,
   options: TourEngineOptions,
 ): TourEngine {
-  const viewer = new Marzipano.Viewer(element);
+  // The tour is for looking around, not for zooming: a wheel or a trackpad
+  // pinch over a panorama that was already framed by its photographer only
+  // loses the framing, and a wheel over the scene is easy to hit by accident.
+  // Building the viewer without `scrollZoom` means the wheel listener is never
+  // registered; Marzipano's touch controls always register a pinch method, so
+  // that one is switched off here.
+  const viewer = new Marzipano.Viewer(element, {
+    controls: { mouseViewMode: 'drag', scrollZoom: false },
+  });
+  viewer.controls().disableMethod('pinch');
+
   const scenes = new Map<string, any>();
   const markers: Marker[] = [];
 
@@ -732,6 +742,8 @@ export function createTourEngine(
   if (first) goToScene(first.id);
 
   function setMode(next: EngineMode): void {
+    // `mode` is the one switch for what a pointer does: view navigates, edit
+    // selects and drags.
     mode = next;
     element.dataset.mode = next;
     // A selection is an editing concept, so it does not survive a mode change.

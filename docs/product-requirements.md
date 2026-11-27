@@ -63,6 +63,11 @@ readable years later, in an app that needs no account and no network.
 - Rooms are navigated by clicking link arrows; notes open their text on hover or
   keyboard focus. A note that has not been written yet shows nothing at all
   rather than an empty bubble.
+- The camera turns but does not zoom: a wheel or a trackpad pinch never changes
+  the field of view, so the framing the tour was saved with is the framing the
+  viewer sees.
+- Viewing changes nothing. The tour's name, the room names and the room order
+  are only fields while editing; in view mode they are titles and labels.
 - The chrome stays out of the way: the tour name, a save indicator, the current
   selection (when editing), a View/Edit switch and Exit.
 
@@ -83,9 +88,10 @@ readable years later, in an app that needs no account and no network.
 - Undo and redo cover everything in the document — notes, links, arrows,
   positions, deletions, the tour's name, and the names and order of the rooms —
   one gesture at a time.
-- A tour's name is editable in the chrome and is what the library lists.
-- The scene nav is editable too: a scene's name is a field, and dragging a row
-  moves that room in the tour's order.
+- In edit mode a tour's name is a field in the chrome and is what the library
+  lists.
+- The scene nav is editable in edit mode too: a scene's name is a field, and
+  dragging a row moves that room in the tour's order.
 
 ### 4.4 Leaving, exporting, deleting
 

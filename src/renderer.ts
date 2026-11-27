@@ -140,6 +140,13 @@ function setState(next: AppState): void {
   modeEditBtn.setAttribute('aria-pressed', String(next === 'edit'));
   modeViewBtn.disabled = next === 'landing';
   modeEditBtn.disabled = next === 'landing';
+
+  // Renaming is an edit: in view mode the name reads as the tour's title and
+  // the rail is navigation, so no field in the chrome or the nav is live.
+  tourName.readOnly = next !== 'edit';
+  tourName.tabIndex = next === 'edit' ? 0 : -1;
+  sceneNav.setEditable(next === 'edit');
+
   if (next === 'landing') closeExitMenu();
 }
 
@@ -695,7 +702,8 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (!(event.metaKey || event.ctrlKey) || state === 'landing') return;
+  // Undo and redo change the document, so they belong to edit mode.
+  if (!(event.metaKey || event.ctrlKey) || state !== 'edit') return;
 
   // Inside a field, the browser's own text undo is the right one.
   if ((event.target as HTMLElement | null)?.closest('input, textarea, select')) return;
